@@ -9,15 +9,9 @@ import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:rgtennisladder/services/player_db.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
-const firebaseConfig = FirebaseOptions(
-    apiKey: "AIzaSyCZIYiDGw1dTZus_XqRM6aeRJqN__Bdff8",
-    authDomain: "rgtennisladder.firebaseapp.com",
-    projectId: "rgtennisladder",
-    storageBucket: "rgtennisladder.appspot.com",
-    messagingSenderId: "384699719810",
-    appId: "1:384699719810:web:0937015e8fc3b09c58d49b",
-    measurementId: "G-XYWE0SRL0T"
-);
+
+import 'firebaseAuth.dart';
+
 String? loggedInPlayerName;
 
 void main() async {
