@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:rgtennisladder/screens/home/stats.dart';
 import 'package:rgtennisladder/screens/wrapper.dart';
 import 'package:rgtennisladder/services/location.dart';

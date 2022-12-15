@@ -84,7 +84,8 @@ class _SignInState extends State<SignIn> {
       'rg_monday_745',
       'rg_wednesday_100',
       'rg_thursday_600',
-      'testing'
+      'testing',
+      'rgtennisladdermonday600'
     ];
     if (fireStoreCollectionName.isEmpty){
       _ladder=ladderList[0];

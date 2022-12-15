@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import 'package:rgtennisladder/models/appuser.dart';
 import 'package:rgtennisladder/screens/wrapper.dart';
 import 'package:rgtennisladder/services/auth.dart';
@@ -10,7 +9,7 @@ import 'package:rgtennisladder/services/player_db.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'firebaseAuth.dart';
+import 'firebase_authorization.dart';
 
 String? loggedInPlayerName;
 

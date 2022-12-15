@@ -122,8 +122,7 @@ class _StatsState extends State<Stats> {
         }
       }
     }
-    // print(imagePath);
-    // print('STATS init ${DateTime.now().weekday} ${DateTime.now().hour}');
+
     return WillPopScope(
       onWillPop: () async {
         //check if the score changed
@@ -157,7 +156,8 @@ class _StatsState extends State<Stats> {
                       : const Text('Here are the stats'))
                   : OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.black, backgroundColor: Colors.green),
+                          foregroundColor: Colors.black,
+                          backgroundColor: Colors.green),
                       onPressed: () async {
                         // print('Select Picture');
                         XFile? pickedFile;
@@ -195,7 +195,8 @@ class _StatsState extends State<Stats> {
                       ?
                       // const Text('Image available!!')
                       Center(child: StorageImage(fullPath: _imagePath!))
-                      : const Text('Please upload an image so others can recognize you'),
+                      : const Text(
+                          'Please upload an image so others can recognize you'),
                 ]),
                 Text(
                   'Admin Level: ' +
@@ -213,38 +214,55 @@ class _StatsState extends State<Stats> {
                     style: nameStyle,
                   )),
                   Expanded(
-                      child: (((Player.admin1Enabled)|(Player.db[statsPlayerNumber].playerName==loggedInPlayerName)) &
-                      ((DateTime.now().weekday!=Player.playOnWeekday)|(DateTime.now().hour<8)|(DateTime.now().hour>=22)))?TextFormField(
-                          initialValue: Player.db[statsPlayerNumber].weeksAway.toString(),
-                          style: nameStyle,
-                          textAlign: TextAlign.center,
-                          // decoration: decoration,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(1)
-                          ],
-                          onChanged: (String value) {
-                            if (value.length==1) {
-                              setState(() {
-                                int newVal = 0;
-                                try {
-                                  newVal = int.parse(value);
-                                } catch (e) {
-                                  if (kDebugMode) {
-                                    print('invalid entry to weeks away');
-                                  }
-                                  newVal = 0;
+                      child: (((Player.admin1Enabled) |
+                                  (Player.db[statsPlayerNumber].playerName ==
+                                      loggedInPlayerName)) &
+                              ((DateTime.now().weekday !=
+                                      Player.playOnWeekday) |
+                                  (DateTime.now().hour < 8) |
+                                  (DateTime.now().hour >= 22)))
+                          ? TextFormField(
+                              initialValue: Player
+                                  .db[statsPlayerNumber].weeksAway
+                                  .toString(),
+                              style: nameStyle,
+                              textAlign: TextAlign.center,
+                              // decoration: decoration,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(1)
+                              ],
+                              onChanged: (String value) {
+                                if (value.length == 1) {
+                                  setState(() {
+                                    int newVal = 0;
+                                    try {
+                                      newVal = int.parse(value);
+                                    } catch (e) {
+                                      if (kDebugMode) {
+                                        print('invalid entry to weeks away');
+                                      }
+                                      newVal = 0;
+                                    }
+                                    Player.setWeeksAway(selectedName, newVal);
+                                  });
                                 }
-                                Player.setWeeksAway(selectedName, newVal);
-                              });
-                            }
-                          }): ((Player.db[statsPlayerNumber].playerName==loggedInPlayerName)?
-                      Text(Player.db[statsPlayerNumber].weeksAway.toString()+' :FROZEN 8am to 10pm\n   on day of ladder!'):
-                      Text(Player.db[statsPlayerNumber].weeksAway.toString(),style: nameStyle)))
-                ])
-,
-                Text(Player.db[statsPlayerNumber].getLastMovement(),style: nameStyle,),
+                              })
+                          : ((Player.db[statsPlayerNumber].playerName ==
+                                  loggedInPlayerName)
+                              ? Text(Player.db[statsPlayerNumber].weeksAway
+                                      .toString() +
+                                  ' :FROZEN 8am to 10pm\n   on day of ladder!')
+                              : Text(
+                                  Player.db[statsPlayerNumber].weeksAway
+                                      .toString(),
+                                  style: nameStyle)))
+                ]),
+                Text(
+                  Player.db[statsPlayerNumber].getLastMovement(),
+                  style: nameStyle,
+                ),
                 // (playerImage!=null)?Container( child: playerImage):const Text('No image'),
               ]),
               const Divider(

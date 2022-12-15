@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-const int softwareVersion=2;
+const int softwareVersion=3;
 
 const textInputDecoration = InputDecoration(
     fillColor: Colors.white,
@@ -49,3 +49,4 @@ final scoreBackgroundDecoration= InputDecoration(fillColor: Colors.grey.shade50,
 // const orderOfCourts2=[8,9,10,1,2,3,4];
 // const orderOfCourtsThursday=[8,9,10,4,3];
 const orderOfCourtsFull=[8,9,10,1,2,3,4];
+const scoreEntryTimeout=120;

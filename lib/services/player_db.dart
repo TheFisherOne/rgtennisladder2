@@ -92,7 +92,7 @@ class Player {
       List.filled(10, 0); //larger than it needs to be
   static var onUpdate = StreamController<bool>.broadcast();
   static bool topOn1 = true;
-  static int numberOfAssignedCourts=0;
+  static int numberOfAssignedCourts = 0;
 
   String uid = '';
   String playerName = '';
@@ -110,6 +110,7 @@ class Player {
   int score4 = -9;
   int score5 = -9;
   int weeksAway = 0;
+  String scoreLastUpdatedBy = '';
 
   // things having to do with the entered scores
   int totalScore = 0;
@@ -133,6 +134,7 @@ class Player {
         Player.freezeCheckins = doc.get('FreezeCheckIns');
         Player.weeksPlayed = doc.get('WeeksPlayed');
         Player.playOnWeekday = doc.get('PlayOnWeekday');
+
         if ((Player.playOnWeekday <= 0) | (Player.playOnWeekday > 7)) {
           if (kDebugMode) {
             print(
@@ -190,7 +192,7 @@ class Player {
           newPlayer.score3 = doc.get('Score3');
           newPlayer.score4 = doc.get('Score4');
           newPlayer.score5 = doc.get('Score5');
-
+          newPlayer.scoreLastUpdatedBy = doc.get('ScoreLastUpdatedBy');
           try {
             newPlayer.weeksAway = doc.get('WeeksAway');
           } catch (e) {
@@ -329,7 +331,7 @@ class Player {
         }
       }
     }
-    numberOfAssignedCourts=court-1;
+    numberOfAssignedCourts = court - 1;
     courtInfoString = getCourtInfoString();
 
     List<int> workingRank = List.filled(Player.db.length, 0);
@@ -587,7 +589,9 @@ class Player {
       'FreezeCheckIns': value,
     });
     if (!value) {
-      print('updateFreezeCheckIns');
+      if (kDebugMode) {
+        print('updateFreezeCheckIns');
+      }
       // clearAllScores(clearPresentAsWell: false);
     }
   }
@@ -697,15 +701,40 @@ class Player {
     for (int playerNumber = 0;
         playerNumber < docsForPlayers.length;
         playerNumber++) {
-      var details = {
-        'Score1': newScore[playerNumber * 6 + 0],
-        'Score2': newScore[playerNumber * 6 + 1],
-        'Score3': newScore[playerNumber * 6 + 2],
-        'Score4': newScore[playerNumber * 6 + 3],
-        'Score5': newScore[playerNumber * 6 + 4],
-        'ScoreLastUpdatedBy': signedInUserName,
-      };
-      scoreUpdate.update(docsForPlayers[playerNumber], details);
+      int scr1 = newScore[playerNumber * 6 + 0];
+      int scr2 = newScore[playerNumber * 6 + 1];
+      int scr3 = newScore[playerNumber * 6 + 2];
+      int scr4 = newScore[playerNumber * 6 + 3];
+      int scr5 = newScore[playerNumber * 6 + 4];
+      // print("updateScore1: ${Player.db[playersOnCourt[playerNumber]].score1} == $scr1");
+      // print("updateScore2: ${Player.db[playersOnCourt[playerNumber]].score2} == $scr2");
+      // print("updateScore3: ${Player.db[playersOnCourt[playerNumber]].score3} == $scr3");
+      if ((Player.db[playersOnCourt[playerNumber]].score1 != scr1) |
+          (Player.db[playersOnCourt[playerNumber]].score2 != scr2) |
+          (Player.db[playersOnCourt[playerNumber]].score3 != scr3) |
+          (Player.db[playersOnCourt[playerNumber]].score4 != scr4) |
+          (Player.db[playersOnCourt[playerNumber]].score5 != scr5)) {
+        Player.db[playersOnCourt[playerNumber]].scoreLastUpdatedBy +=
+            signedInUserName +
+                ':' +
+                scr1.toString() +
+                scr2.toString() +
+                scr3.toString() +
+                ((scr4 >= 0) ? scr4.toString() : '') +
+                ((scr5 >= 0) ? scr5.toString() : '') +
+                '/';
+        var details = {
+          'Score1': scr1,
+          'Score2': scr2,
+          'Score3': scr3,
+          'Score4': scr4,
+          'Score5': scr5,
+          'ScoreLastUpdatedBy':
+              Player.db[playersOnCourt[playerNumber]].scoreLastUpdatedBy,
+        };
+
+        scoreUpdate.update(docsForPlayers[playerNumber], details);
+      }
     }
     scoreUpdate.commit();
   }
@@ -733,14 +762,14 @@ class Player {
     for (int playerNumber = 0;
         playerNumber < Player.db.length;
         playerNumber++) {
-      var details = {
-        'Score1': -9,
-        'Score2': -9,
-        'Score3': -9,
-        'Score4': -9,
-        'Score5': -9,
-        'ScoreLastUpdatedBy': '',
-      };
+      var details = <String, dynamic>{};
+      details['Score1'] = -9;
+      details['Score2'] = -9;
+      details['Score3'] = -9;
+      details['Score4'] = -9;
+      details['Score5'] = -9;
+      details['ScoreLastUpdatedBy'] = '';
+
       if (clearPresentAsWell) {
         details['Present'] = false;
       }
@@ -874,39 +903,38 @@ class Player {
       return;
     }
 
-
     int newRank = 0;
-    await FirebaseFirestore.instance.collection(otherLadder).get().then((doc) => {
-          doc.docs.forEach((result) {
-            if (otherLadder == 'rg_monday_745') {
-              newRank=1;
-              int rank = result.get("Rank");
-              // print('745 Found entry ${rank} ${result.id}');
+    await FirebaseFirestore.instance
+        .collection(otherLadder)
+        .get()
+        .then((doc) => {
+              doc.docs.forEach((result) {
+                if (otherLadder == 'rg_monday_745') {
+                  newRank = 1;
+                  int rank = result.get("Rank");
+                  // print('745 Found entry ${rank} ${result.id}');
 
-              // WriteBatch rankUpdate = FirebaseFirestore.instance.batch();
-              if ((rank > 0) && (rank < 99)) {
-                FirebaseFirestore.instance
-                    .collection(otherLadder)
-                    .doc(result.id)
-                    .update({'Rank': rank + 1});
-              }
-            } else {
-              int rank = result.get("Rank");
-              if ((rank > 0) && (rank < 99) & (rank > newRank)) {
-                newRank = rank;
-              }
-              // print('600 Found entry ${rank} ${result.id} $newRank');
-            }
-          })
-        });
-    if (otherLadder == 'rg_monday_600'){
-      newRank+=1;
+                  // WriteBatch rankUpdate = FirebaseFirestore.instance.batch();
+                  if ((rank > 0) && (rank < 99)) {
+                    FirebaseFirestore.instance
+                        .collection(otherLadder)
+                        .doc(result.id)
+                        .update({'Rank': rank + 1});
+                  }
+                } else {
+                  int rank = result.get("Rank");
+                  if ((rank > 0) && (rank < 99) & (rank > newRank)) {
+                    newRank = rank;
+                  }
+                  // print('600 Found entry ${rank} ${result.id} $newRank');
+                }
+              })
+            });
+    if (otherLadder == 'rg_monday_600') {
+      newRank += 1;
     }
     // print('new rank is $newRank');
-    FirebaseFirestore.instance
-        .collection(otherLadder)
-        .doc(newName)
-        .set({
+    FirebaseFirestore.instance.collection(otherLadder).doc(newName).set({
       'Admin': shouldBeFound.admin,
       'Present': false,
       'Rank': newRank,
@@ -1034,6 +1062,7 @@ class Player {
       'UID': newUID,
     });
   }
+
   static void setEmail(String playerName, String newEmail) {
     if (kDebugMode) {
       print('Setting email for $playerName to $newEmail');
@@ -1079,7 +1108,7 @@ class Player {
     setWeeksPlayed(Player.weeksPlayed + 1);
     String outputBuf = '';
     String header =
-        'Week,Court,oldR,Pres.,+-pl,+-aw,+-Wi,scr1,scr2,scr3,scr4,scr5,Total,newR,Player Name              ,Time Present,Away\n';
+        'Week,Court,oldR,Pres.,+-pl,+-aw,+-Wi,scr1,scr2,scr3,scr4,scr5,Total,newR,Player Name              ,Time Present,Away,ScoredBy\n';
     for (Player pl in db) {
       outputBuf += Player.weeksPlayed.toString().padLeft(4) + ',';
       outputBuf += pl.assignedCourt.toString().padLeft(4) + ',';
@@ -1102,7 +1131,8 @@ class Player {
       } else {
         outputBuf += ',';
       }
-      outputBuf += pl.weeksAway.toString() + ',\n';
+      outputBuf += pl.weeksAway.toString() + ',';
+      outputBuf += pl.scoreLastUpdatedBy.toString().padLeft(15) + ',\n';
     }
     try {
       await firebase_storage.FirebaseStorage.instance.ref(filename).putString(
