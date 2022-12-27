@@ -50,3 +50,11 @@ final scoreBackgroundDecoration= InputDecoration(fillColor: Colors.grey.shade50,
 // const orderOfCourtsThursday=[8,9,10,4,3];
 const orderOfCourtsFull=[8,9,10,1,2,3,4];
 const scoreEntryTimeout=120;
+var ladderList = [
+  'rg_monday_600',
+  'rg_monday_745',
+  'rg_wednesday_100',
+  'rg_thursday_600',
+  'testing',
+  'rgtennisladdermonday600'
+];

@@ -36,7 +36,15 @@ String? playerValidator(val) {
   }
   return null;
 }
+void setLadder(String val) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
 
+  prefs.setString('ladderName', val);
+  fireStoreCollectionName = val;
+  if (kDebugMode) {
+    print('setLadder: fireStoreCollectionName now: $fireStoreCollectionName');
+  }
+}
 class SignIn extends StatefulWidget {
   const SignIn({Key? key}) : super(key: key);
 
@@ -58,15 +66,9 @@ class _SignInState extends State<SignIn> {
     return val!.isEmpty ? 'The ladder you are in is required' : null;
   }
 
-  void setLadder(String val) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+  void _setLadder(String val) async {
     _ladder = val;
-
-    prefs.setString('ladderName', val);
-    fireStoreCollectionName = val;
-    if (kDebugMode) {
-      print('setLadder: fireStoreCollectionName now: $fireStoreCollectionName');
-    }
+    setLadder(val);
   }
 
   void setPlayer(String val) async {
@@ -79,14 +81,7 @@ class _SignInState extends State<SignIn> {
 
   @override
   Widget build(BuildContext context) {
-    var ladderList = [
-      'rg_monday_600',
-      'rg_monday_745',
-      'rg_wednesday_100',
-      'rg_thursday_600',
-      'testing',
-      'rgtennisladdermonday600'
-    ];
+
     if (fireStoreCollectionName.isEmpty){
       _ladder=ladderList[0];
       setCollectionName(ladderList[0]);
@@ -146,7 +141,7 @@ class _SignInState extends State<SignIn> {
                                                   val = 'rgtennisladdermonday600';
                                                 }
                                                 setState(() {
-                                                  setLadder(val!);
+                                                  _setLadder(val!);
                                                 });
                                               }
                                             },

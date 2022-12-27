@@ -13,6 +13,7 @@ import 'administration.dart';
 import 'enter_scores2.dart';
 
 _HomeState? homeStateInstance;
+enum Menu { itemOne, itemTwo, itemThree, itemFour }
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -29,6 +30,7 @@ class _HomeState extends State<Home> {
 
   final LocationService _loc = LocationService();
   bool _locInitialized = false;
+  String _selectedMenu='';
 
   void updateAdmin1() {
     setState(() {
@@ -94,28 +96,65 @@ class _HomeState extends State<Home> {
         backgroundColor: appBarColor,
         elevation: 0.0,
         actions: <Widget>[
-          ((fireStoreCollectionName.length > 9) &&
-                  (fireStoreCollectionName.substring(0, 9) == 'rg_monday'))
-              ? IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () {
-                    if (fireStoreCollectionName == 'rg_monday_600') {
-                      setCollectionName('rg_monday_745');
-                      historyFileList = null;
-                      buildHistoryFileList();
-                    } else if (fireStoreCollectionName == 'rg_monday_745') {
-                      setCollectionName('rg_monday_600');
-                      historyFileList = null;
-                      buildHistoryFileList();
-                    }
-                    setState(() {});
-                  },
-                  icon: const Icon(Icons.toc),
-                  enableFeedback: true,
-                  // color: _colorAdminIconRed ? Colors.redAccent : Colors.white,
-                )
-              : const Text(''),
+          PopupMenuButton<int>(
+            // Callback that sets the selected popup menu item.
+              onSelected: (int item) {
+                setState(() {
+                  _selectedMenu = ladderList[item];
+                  // print('Selected $_selectedMenu');
+                  setCollectionName(_selectedMenu);
+                  historyFileList = null;
+                  buildHistoryFileList();
+                });
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
+                PopupMenuItem<int>(
+                  value: 0,
+                  child: Text(ladderList[0]),
+                ),
+                PopupMenuItem<int>(
+                  value: 1,
+                  child: Text(ladderList[1]),
+                ),
+                PopupMenuItem<int>(
+                  value: 2,
+                  child: Text(ladderList[2]),
+                ),
+                PopupMenuItem<int>(
+                  value: 3,
+                  child: Text(ladderList[3]),
+                ),
+                PopupMenuItem<int>(
+                  value: 4,
+                  child: Text(ladderList[4]),
+                ),
+                PopupMenuItem<int>(
+                  value: 5,
+                  child: Text(ladderList[5]),
+                ),
+              ]),
+          // ((fireStoreCollectionName.length > 9) &&
+          //         (fireStoreCollectionName.substring(0, 9) == 'rg_monday'))
+          //     ? IconButton(
+          //         padding: EdgeInsets.zero,
+          //         constraints: const BoxConstraints(),
+          //         onPressed: () {
+          //           if (fireStoreCollectionName == 'rg_monday_600') {
+          //             setCollectionName('rg_monday_745');
+          //             historyFileList = null;
+          //             buildHistoryFileList();
+          //           } else if (fireStoreCollectionName == 'rg_monday_745') {
+          //             setCollectionName('rg_monday_600');
+          //             historyFileList = null;
+          //             buildHistoryFileList();
+          //           }
+          //           setState(() {});
+          //         },
+          //         icon: const Icon(Icons.toc),
+          //         enableFeedback: true,
+          //         // color: _colorAdminIconRed ? Colors.redAccent : Colors.white,
+          //       )
+          //     : const Text(''),
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -249,7 +288,7 @@ class _HomeState extends State<Home> {
                                               context,
                                               MaterialPageRoute(
                                                   builder: (context) =>
-                                                      const EnterScores2()));
+                                                      EnterScores2()));
                                         }
                                       }
                                     },

@@ -24,6 +24,7 @@ void setCollectionName(String newName) {
   Player.admin1Enabled = false;
   Player.db = List.empty(growable: true);
   fireStoreCollectionName = newName;
+  setLadder(fireStoreCollectionName);
   if (kDebugMode) {
     print(
         'setCollectionName:  fireStoreCollectionName to $fireStoreCollectionName');
@@ -297,14 +298,14 @@ class Player {
     }
 
     for (var i = 0; i < playersPerCourt1.length; i++) {
-      if (Player.topOn1) {
+      // if (Player.topOn1) {
         Player.playersPerCourt[i] =
             playersPerCourt1[(i + rotateAmt) % playersPerCourt1.length];
-      } else {
-        Player.playersPerCourt[i] = playersPerCourt1[playersPerCourt1.length -
-            1 -
-            ((i + rotateAmt) % playersPerCourt1.length)];
-      }
+      // } else {
+      //   Player.playersPerCourt[i] = playersPerCourt1[playersPerCourt1.length -
+      //       1 -
+      //       ((i + rotateAmt) % playersPerCourt1.length)];
+      // }
     }
 
     int court = 1;
@@ -611,6 +612,12 @@ class Player {
   String getLastMovement() {
     final movement = lastMovement.split(':');
     String result;
+    if (movement.length < 5){
+      if (kDebugMode) {
+        print('LastMovement is not filled in! Can not display');
+      }
+      return '';
+    }
     result = 'Moved From Rank: ' + movement[0] + ' To: ' + movement[1] + '\n';
     if (movement[2][0] == '-') {
       result += 'Moved down due to score: ' + movement[2].substring(1) + '\n';
@@ -629,6 +636,42 @@ class Player {
           '\n';
     } else if (movement[4][0] != '0') {
       result += 'Moved UP due to finishing first: ' + movement[4] + '\n';
+    }
+
+    if (movement.length < 10){
+      if (kDebugMode) {
+        print('LastMovement does not have scores. Probably ok');
+      }
+      return result;
+    }
+    result='Game Scores:';
+    if (movement[5][0]!='-'){
+      result+=movement[5].toString();
+    } else {
+      result+='0';
+    }
+    if (movement[6][0]!='-'){
+      result+=','+movement[6].toString();
+    } else {
+      result+=',0';
+    }
+    if (movement[7][0]!='-'){
+      result+=','+movement[7].toString();
+    } else {
+      result+=',0';
+    }
+    if ((movement[8][0]=='-')&&(movement[9][0]=='-')) {
+      return result; // don't display trailing zeros
+    }
+    if (movement[8][0]!='-'){
+      result+=','+movement[8].toString();
+    } else {
+      result+=',0';
+    }
+    if (movement[9][0]!='-'){
+      result+=','+movement[9].toString();
+    } else {
+      result+=',0';
     }
     return result;
   }
@@ -1194,7 +1237,17 @@ class Player {
             ':' +
             db[index].correctedMovementDueToAways.toString() +
             ':' +
-            db[index].movementDueToWinnerJumping.toString(),
+            db[index].movementDueToWinnerJumping.toString()+
+            ':' +
+            db[index].score1.toString()+
+            ':' +
+            db[index].score2.toString()+
+            ':' +
+            db[index].score3.toString()+
+            ':' +
+            db[index].score4.toString()+
+            ':' +
+            db[index].score5.toString(),
       });
     }
     doc = FirebaseFirestore.instance
