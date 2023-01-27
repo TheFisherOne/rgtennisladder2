@@ -9,6 +9,7 @@ String latestCompleteHistoryFile = '';
 
 void buildHistoryFileList() async {
   if (historyFileList != null) return;
+  latestCompleteHistoryFile = '';
   historyFileList = [];
   // print('reading history files $fireStoreCollectionName');
   FirebaseStorage.instance
@@ -20,7 +21,7 @@ void buildHistoryFileList() async {
     for (var element in result.items) {
       historyFileList!.add(element.fullPath);
       if (element.fullPath.contains('_complete_')) {
-        // print('buildHistoryFileList $latestCompleteHistoryFile  ${element.fullPath} ${element.fullPath.compareTo(latestCompleteHistoryFile)}');
+        // print('buildHistoryFileList $latestCompleteHistoryFile  ${element.fullPath} ${element.fullPath.compareTo(latestCompleteHistoryFile)} $fireStoreCollectionName');
         if (element.fullPath.compareTo(latestCompleteHistoryFile) > 0) {
           latestCompleteHistoryFile = element.fullPath;
         }
@@ -36,10 +37,10 @@ class History extends StatefulWidget {
   const History({Key? key}) : super(key: key);
 
   @override
-  _HistoryState createState() => _HistoryState();
+  HistoryState createState() => HistoryState();
 }
 
-class _HistoryState extends State<History> {
+class HistoryState extends State<History> {
   String? _downloadURL;
   final _storage = FirebaseStorage.instance;
   @override
@@ -55,15 +56,16 @@ class _HistoryState extends State<History> {
         body: Column(
           children: <Widget>[
             InkWell(
-                child: Text(_downloadURL == null
-                    ? 'Files Available for ' + fireStoreCollectionName
-                    : _downloadURL!),
-                onTap: _downloadURL == null
+              onTap: _downloadURL == null
                     ? null
                     : () {
                         // launch(_downloadURL!);
                         launchUrlString(_downloadURL!);
-                      }),
+                      },
+              child: Text(_downloadURL == null
+                  ? 'Files Available for $fireStoreCollectionName'
+                  : _downloadURL!),
+            ),
             Expanded(
               child: ListView.builder(
                 shrinkWrap: true,

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:rgtennisladder/services/player_db.dart';
 import 'package:rgtennisladder/shared/constants.dart';
 import 'package:flutter/material.dart';
@@ -15,10 +14,10 @@ Timer? entryTimer;
 bool forceExit = false;
 
 class EnterScores2 extends StatefulWidget {
-  EnterScores2({Key? key}) : super(key: key);
+  const EnterScores2({Key? key}) : super(key: key);
 
   @override
-  _EnterScores2State createState() => _EnterScores2State();
+  EnterScores2State createState() => EnterScores2State();
 
   static void prepareForScoreEntry(newPlayersOnCourt, newPlayerToEnterScore) {
     _enableScoreEntry = false;
@@ -50,7 +49,7 @@ class EnterScores2 extends StatefulWidget {
   }
 }
 
-class _EnterScores2State extends State<EnterScores2> {
+class EnterScores2State extends State<EnterScores2> {
   int _exitCountdown = scoreEntryTimeout;
   Timer? _timer;
 
@@ -108,7 +107,7 @@ class _EnterScores2State extends State<EnterScores2> {
 
       scores[row * 6 + 5] = lineScore;
     }
-    List<Widget> _getGrid(int numPlayers) {
+    List<Widget> getGrid(int numPlayers) {
       List<Widget> listings = List<Widget>.empty(growable: true);
       for (int row = 0; row < numPlayers; row++) {
           for (int col = 0; col < numPlayers + 2; col++) {
@@ -117,7 +116,7 @@ class _EnterScores2State extends State<EnterScores2> {
             TextStyle thisStyle = nameStyle;
 
             listings.add(Text(
-              'P' + (row + 1).toString() + separator,
+              'P + ${(row + 1).toString()}$separator',
               style: thisStyle,
               textAlign: TextAlign.center,
             ));
@@ -222,6 +221,7 @@ class _EnterScores2State extends State<EnterScores2> {
             }
 
             listings.add(Container(
+              height: 100,
               color: (numPlayers == 5) & ((5 - col) == row)
                   ? appBackgroundColor
                   : appBarColor,
@@ -295,9 +295,7 @@ class _EnterScores2State extends State<EnterScores2> {
       // }
       return const Text('dummy');
     }
-    if (entryTimer == null) {
-      // print('creating entryTimer');
-      entryTimer = Timer(const Duration(seconds: scoreEntryTimeout), () {
+    entryTimer ??= Timer(const Duration(seconds: scoreEntryTimeout), () {
         _enableScoreEntry = false;
         entryTimer = null;
         forceExit = true;
@@ -306,7 +304,6 @@ class _EnterScores2State extends State<EnterScores2> {
         // }
         Navigator.pop(context);
       });
-    }
     return WillPopScope(
       onWillPop: () async {
         if (_enableScoreEntry) {
@@ -371,72 +368,87 @@ class _EnterScores2State extends State<EnterScores2> {
                 color: Colors.black,
               ),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      'P1: ' + Player.db[playersOnCourt[0]].playerName,
-                      style: nameStyle,
+                SizedBox(
+                  height:25,
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(
+                        'P1: ${Player.db[playersOnCourt[0]].playerName}',
+                        style: nameStyle,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '${scores[0 * 6 + 5]}',
-                    style: nameStyle,
-                    textAlign: TextAlign.end,
-                  ),
-                ]),
+                    Text(
+                      '${scores[0 * 6 + 5]}',
+                      style: nameStyle,
+                      textAlign: TextAlign.end,
+                    ),
+                  ]),
+                ),
                 const Divider(
                   color: Colors.black,
                 ),
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      'P2: ' + Player.db[playersOnCourt[1]].playerName,
-                      style: nameStyle,
+                SizedBox(
+                  height:25,
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(
+                        'P2: ${Player.db[playersOnCourt[1]].playerName}',
+                        style: nameStyle,
+                      ),
                     ),
-                  ),
-                  Text('${scores[1 * 6 + 5]}',
-                      style: nameStyle, textAlign: TextAlign.end),
-                ]),
+                    Text('${scores[1 * 6 + 5]}',
+                        style: nameStyle, textAlign: TextAlign.end),
+                  ]),
+                ),
                 const Divider(
                   color: Colors.black,
                 ),
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      'P3: ' + Player.db[playersOnCourt[2]].playerName,
-                      style: nameStyle,
+                SizedBox(
+                  height:25,
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(
+                        'P3: ${Player.db[playersOnCourt[2]].playerName}',
+                        style: nameStyle,
+                      ),
                     ),
-                  ),
-                  Text('${scores[2 * 6 + 5]}',
-                      style: nameStyle, textAlign: TextAlign.end),
-                ]),
+                    Text('${scores[2 * 6 + 5]}',
+                        style: nameStyle, textAlign: TextAlign.end),
+                  ]),
+                ),
                 const Divider(
                   color: Colors.black,
                 ),
-                Row(children: [
-                  Expanded(
-                    child: Text(
-                      'P4: ' + Player.db[playersOnCourt[3]].playerName,
-                      style: nameStyle,
+                SizedBox(
+                  height:25,
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(
+                        'P4: ${Player.db[playersOnCourt[3]].playerName}',
+                        style: nameStyle,
+                      ),
                     ),
-                  ),
-                  Text('${scores[3 * 6 + 5]}',
-                      style: nameStyle, textAlign: TextAlign.end),
-                ]),
+                    Text('${scores[3 * 6 + 5]}',
+                        style: nameStyle, textAlign: TextAlign.end),
+                  ]),
+                ),
                 const Divider(
                   color: Colors.black,
                 ),
                 (playersOnCourt[4] >= 0)
-                    ? Row(children: [
-                        Expanded(
-                          child: Text(
-                            'P5: ' + Player.db[playersOnCourt[4]].playerName,
-                            style: nameStyle,
+                    ? SizedBox(
+                  height:25,
+                      child: Row(children: [
+                          Expanded(
+                            child: Text(
+                              'P5: ${Player.db[playersOnCourt[4]].playerName}',
+                              style: nameStyle,
+                            ),
                           ),
-                        ),
-                        Text('${scores[4 * 6 + 5]}',
-                            style: nameStyle, textAlign: TextAlign.end),
-                      ])
+                          Text('${scores[4 * 6 + 5]}',
+                              style: nameStyle, textAlign: TextAlign.end),
+                        ]),
+                    )
                     : const Text(''),
                 const SizedBox(height: 20),
               ]),
@@ -447,16 +459,28 @@ class _EnterScores2State extends State<EnterScores2> {
                 mainAxisSpacing: 5,
                 shrinkWrap: true,
                 childAspectRatio: 1.5,
-                children: _getGrid(numPlayers),
+                children: getGrid(numPlayers),
               ),
+              Text(Player.db[playersOnCourt[0]].scoreLastUpdatedBy, style: nameStyle),
+              Text(Player.db[playersOnCourt[1]].scoreLastUpdatedBy, style: nameStyle),
+              Text(Player.db[playersOnCourt[2]].scoreLastUpdatedBy, style: nameStyle),
+              Text(Player.db[playersOnCourt[3]].scoreLastUpdatedBy, style: nameStyle),
+              (playersOnCourt[4]>0)?
+              Text(Player.db[playersOnCourt[4]].scoreLastUpdatedBy, style: nameStyle):const Text(''),
+              ElevatedButton(
+                  onPressed: () {
+                    Player.updateConfirmScore(playersOnCourt);
+                    if (entryTimer != null) {
+                      entryTimer!.cancel();
+                      entryTimer = null;
+                      forceExit = true;
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                      'Someone else confirms that scores are correct')),
               const Text(
-                'Once you start changing scores you must save or quit',
-                style: nameStyle,
-              ),
-              Text(
-                'this window will timeout and quit after ' +
-                    scoreEntryTimeout.toString() +
-                    ' seconds',
+                'this window will timeout and quit after $scoreEntryTimeout seconds',
                 style: nameStyle,
               ),
             ]),

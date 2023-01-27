@@ -33,12 +33,12 @@ void setCollectionName(String newName) {
 
 class OldSoftwareVersion implements Exception {
   String errorMessage() {
-    return 'YOUR SOFTWARE NEEDS TO BE UPDATED!';
+    return 'YOUR SOFTWARE NEEDS TO BE UPDATED!\nClose the window and reload please!';
   }
 
   @override
   String toString() {
-    return 'YOUR SOFTWARE NEEDS TO BE UPDATED!';
+    return 'YOUR SOFTWARE NEEDS TO BE UPDATED!\nClose the window and reload please!';
   }
 }
 
@@ -72,6 +72,7 @@ void buildPlayerImageFileList({refresh = false}) async {
 }
 
 class Player {
+  static int adNumber=0;
   static bool admin1Enabled = false;
   static bool admin2Enabled = false;
   // things there are only 1 of
@@ -94,6 +95,7 @@ class Player {
   static var onUpdate = StreamController<bool>.broadcast();
   static bool topOn1 = true;
   static int numberOfAssignedCourts = 0;
+  static String adLink='';
 
   String uid = '';
   String playerName = '';
@@ -116,10 +118,11 @@ class Player {
   // things having to do with the entered scores
   int totalScore = 0;
   int movementDueToScore = 0;
-  int correctedMovementDueToAways = 0;
+  int correctedMovementDueToAway = 0;
   int movementDueToWinnerJumping = 0;
   int newRank = 0;
   String lastMovement = '';
+  String? email;
 
   static buildPlayerDB(AsyncSnapshot<QuerySnapshot> snapshot) {
     numPresent = 0;
@@ -135,6 +138,16 @@ class Player {
         Player.freezeCheckins = doc.get('FreezeCheckIns');
         Player.weeksPlayed = doc.get('WeeksPlayed');
         Player.playOnWeekday = doc.get('PlayOnWeekday');
+        try {
+          Player.adNumber = doc.get('adNumber');
+        } catch (e) {
+          Player.adNumber = 0;
+        }
+        try {
+          Player.adLink = doc.get('adLink');
+        } catch (e) {
+          Player.adLink = '';
+        }
 
         if ((Player.playOnWeekday <= 0) | (Player.playOnWeekday > 7)) {
           if (kDebugMode) {
@@ -206,6 +219,11 @@ class Player {
           }
           int totalScore = 0;
 
+          try {
+            newPlayer.email = doc.get('Email');
+          } catch (e) {
+            newPlayer.email = null;
+          }
           if (newPlayer.score1 >= 0) totalScore += newPlayer.score1;
           if (newPlayer.score2 >= 0) totalScore += newPlayer.score2;
           if (newPlayer.score3 >= 0) totalScore += newPlayer.score3;
@@ -402,7 +420,7 @@ class Player {
     List<int> awayRank = workingRank;
 
     // List<int> presentRank = List.filled(Player.db.length, -1);
-    List<int> movementDueToAways = List.filled(Player.db.length, 0);
+    List<int> movementDueToAway = List.filled(Player.db.length, 0);
 
     // for (Player pl in Player.db) {
     //   int rank = pl.currentRank;
@@ -448,9 +466,8 @@ class Player {
     // print('awayRank: $awayRank');
     for (int i = 0; i < Player.db.length; i++) {
       int index = awayRank.indexOf(i + 1);
-      movementDueToAways[i] = i - index;
+      movementDueToAway[i] = i - index;
     }
-    // print('movementDueToAways: $movementDueToAways');
 
     List<int> movementDueToScore = List.filled(Player.db.length, 0);
     List<int> winnerRanks = List.empty(growable: true);
@@ -510,9 +527,9 @@ class Player {
     // print('newRankAfter2: $newRankAfter2');
     // print('orderAfter2: $orderAfter2');
 
-    List<int> correctedMovementDueToAways = List.filled(Player.db.length, 0);
+    List<int> correctedMovementDueToAway = List.filled(Player.db.length, 0);
     for (var i = 0; i < Player.db.length; i++) {
-      correctedMovementDueToAways[orderAfter2[i] - 1] = movementDueToAways[i];
+      correctedMovementDueToAway[orderAfter2[i] - 1] = movementDueToAway[i];
     }
 
     // finally figure out the extra movements for winning and losing
@@ -521,40 +538,29 @@ class Player {
       int loserRank = loserRanks[court];
       int winnerRank = winnerRanks[court + 1];
       int loserNow = loserRank -
-          correctedMovementDueToAways[loserRank - 1] -
+          correctedMovementDueToAway[loserRank - 1] -
           movementDueToScore[loserRank - 1];
       int winnerNow = winnerRank -
-          correctedMovementDueToAways[winnerRank - 1] -
+          correctedMovementDueToAway[winnerRank - 1] -
           movementDueToScore[winnerRank - 1];
       int jumpUp = winnerNow - loserNow;
       //print(          'Court:$court, l:$loserRank, w:$winnerRank, ln:$loserNow, wn:$winnerNow, j:$jumpUp');
 
       movementDueToWinnerJumping[winnerRank - 1] = jumpUp;
       movementDueToWinnerJumping[loserRank - 1] = -jumpUp;
-      // everyone in between needs to move down
-      // for (var i = 0; i < Player.db.length; i++) {
-      //   int iNow =
-      //       i + 1 - correctedMovementDueToAways[i] - movementDueToScore[i];
-      //   if ((iNow >= loserNow) & (iNow < winnerNow)) {
-      //     movementDueToWinnerJumping[i] = -1;
-      //   }
-      // }
     }
     // print('movementDueToWinnerJumping: $movementDueToWinnerJumping');
 
     for (Player pl in Player.db) {
       int rank = pl.currentRank;
       pl.movementDueToScore = movementDueToScore[rank - 1];
-      pl.correctedMovementDueToAways = correctedMovementDueToAways[rank - 1];
+      pl.correctedMovementDueToAway = correctedMovementDueToAway[rank - 1];
       pl.movementDueToWinnerJumping = movementDueToWinnerJumping[rank - 1];
       pl.newRank = rank -
           pl.movementDueToScore -
-          pl.correctedMovementDueToAways -
+          pl.correctedMovementDueToAway -
           pl.movementDueToWinnerJumping;
     }
-    // print('correctedMovementDueToAways: $correctedMovementDueToAways');
-    // print('movementDueToScore: $movementDueToScore');
-
     onUpdate.add(true);
   }
 
@@ -618,24 +624,22 @@ class Player {
       }
       return '';
     }
-    result = 'Moved From Rank: ' + movement[0] + ' To: ' + movement[1] + '\n';
+    result = 'Moved From Rank: ${movement[0]} To: ${movement[1]}\n';
     if (movement[2][0] == '-') {
-      result += 'Moved down due to score: ' + movement[2].substring(1) + '\n';
+      result += 'Moved down due to score: ${movement[2].substring(1)}\n';
     } else if (movement[2][0] != '0') {
-      result += 'Moved UP due to score: ' + movement[2] + '\n';
+      result += 'Moved UP due to score: ${movement[2]}\n';
     }
     if (movement[3][0] == '-') {
       result +=
-          'Moved down due to being away: ' + movement[3].substring(1) + '\n';
+          'Moved down due to being away: ${movement[3].substring(1)}\n';
     } else if (movement[3][0] != '0') {
-      result += 'Moved UP due to others being away: ' + movement[3] + '\n';
+      result += 'Moved UP due to others being away: ${movement[3]}\n';
     }
     if (movement[4][0] == '-') {
-      result += 'Moved down due to finishing last: ' +
-          movement[4].substring(1) +
-          '\n';
+      result += 'Moved down due to finishing last: ${movement[4].substring(1)}\n';
     } else if (movement[4][0] != '0') {
-      result += 'Moved UP due to finishing first: ' + movement[4] + '\n';
+      result += 'Moved UP due to finishing first: ${movement[4]}\n';
     }
 
     if (movement.length < 10){
@@ -644,19 +648,19 @@ class Player {
       }
       return result;
     }
-    result='Game Scores:';
+    result+='Game Scores:';
     if (movement[5][0]!='-'){
       result+=movement[5].toString();
     } else {
       result+='0';
     }
     if (movement[6][0]!='-'){
-      result+=','+movement[6].toString();
+      result+=',${movement[6]}';
     } else {
       result+=',0';
     }
     if (movement[7][0]!='-'){
-      result+=','+movement[7].toString();
+      result+=',${movement[7]}';
     } else {
       result+=',0';
     }
@@ -664,12 +668,12 @@ class Player {
       return result; // don't display trailing zeros
     }
     if (movement[8][0]!='-'){
-      result+=','+movement[8].toString();
+      result+=',${movement[8]}';
     } else {
       result+=',0';
     }
     if (movement[9][0]!='-'){
-      result+=','+movement[9].toString();
+      result+=',${movement[9]}';
     } else {
       result+=',0';
     }
@@ -699,18 +703,49 @@ class Player {
         courtsOf4 += 1;
       }
     }
-    String retValue = courtsOf4.toString() +
-        'of4  &  ' +
-        courtsOf5.toString() +
-        'of5 #' +
-        expectedPlayers.toString();
+    String retValue = '${courtsOf4}of4  &  ${courtsOf5}of5 #$expectedPlayers';
     if (courtsOf0 > 0) {
-      retValue += ', +' + courtsOf0.toString();
+      retValue += ', +$courtsOf0';
     }
     // print('Court Info $retValue');
     return retValue;
   }
 
+  static void updateConfirmScore(List<int> playersOnCourt){
+    // print('Entering updateConfirmScore');
+    if (!freezeCheckins) {
+      if (kDebugMode) {
+        print("Can't updateConfirmScore after we get out of freezeCheckIns!");
+      }
+      return;
+    }
+    Player? signedInUser = findPlayerByUID(loggedInUID);
+    String signedInUserName = 'Admin';
+    if (signedInUser != null) {
+      signedInUserName = signedInUser.playerName;
+    }
+    WriteBatch scoreUpdate = FirebaseFirestore.instance.batch();
+    for (int pl=0;pl<playersOnCourt.length;pl++){
+      // print('playersOnCourt $pl ${playersOnCourt[pl]}');
+      if (playersOnCourt[pl] >=0) {
+        var doc = FirebaseFirestore.instance
+            .collection(fireStoreCollectionName)
+            .doc(Player.db[playersOnCourt[pl]].playerName);
+        Player.db[playersOnCourt[pl]].scoreLastUpdatedBy +=
+        '$signedInUserName!!';
+        // print('updateConfirmScore ${Player.db[playersOnCourt[pl]]
+        //     .scoreLastUpdatedBy}  ${Player.db[playersOnCourt[pl]]
+        //     .playerName} $signedInUserName');
+        var details = {
+          'ScoreLastUpdatedBy':
+          Player.db[playersOnCourt[pl]].scoreLastUpdatedBy,
+        };
+        scoreUpdate.update(doc, details);
+      }
+    }
+    scoreUpdate.commit();
+    // print('Finished updateConfirmScore');
+  }
   static void updateScore(List<int> playersOnCourt, List<int> newScore) {
     if (!freezeCheckins) {
       if (kDebugMode) {
@@ -758,14 +793,7 @@ class Player {
           (Player.db[playersOnCourt[playerNumber]].score4 != scr4) |
           (Player.db[playersOnCourt[playerNumber]].score5 != scr5)) {
         Player.db[playersOnCourt[playerNumber]].scoreLastUpdatedBy +=
-            signedInUserName +
-                ':' +
-                scr1.toString() +
-                scr2.toString() +
-                scr3.toString() +
-                ((scr4 >= 0) ? scr4.toString() : '') +
-                ((scr5 >= 0) ? scr5.toString() : '') +
-                '/';
+            '$signedInUserName:$scr1$scr2$scr3${(scr4 >= 0) ? scr4.toString() : ""}${(scr5 >= 0) ? scr5.toString() : ""}/';
         var details = {
           'Score1': scr1,
           'Score2': scr2,
@@ -775,7 +803,7 @@ class Player {
           'ScoreLastUpdatedBy':
               Player.db[playersOnCourt[playerNumber]].scoreLastUpdatedBy,
         };
-
+        // print('updateScore $details');
         scoreUpdate.update(docsForPlayers[playerNumber], details);
       }
     }
@@ -969,7 +997,6 @@ class Player {
                   if ((rank > 0) && (rank < 99) & (rank > newRank)) {
                     newRank = rank;
                   }
-                  // print('600 Found entry ${rank} ${result.id} $newRank');
                 }
               })
             });
@@ -1008,16 +1035,16 @@ class Player {
     }
     if (kDebugMode) {
       print(
-          '$newName playerdb starts ${db.length} players before del ${db[db.length - 2].playerName} ${db[db.length - 1].playerName}');
+          '$newName player db starts ${db.length} players before del ${db[db.length - 2].playerName} ${db[db.length - 1].playerName}');
     }
     updateRank(newName, db.length);
     if (kDebugMode) {
       print(
-          'playerdb has ${db.length} players before del ${db[db.length - 2].playerName} ${db[db.length - 1].playerName}');
+          'player db has ${db.length} players before del ${db[db.length - 2].playerName} ${db[db.length - 1].playerName}');
     }
     db.removeAt(db.length - 1);
     if (kDebugMode) {
-      print('playerdb has ${db.length} players after remove at');
+      print('player db has ${db.length} players after remove at');
     }
     FirebaseFirestore.instance
         .collection(fireStoreCollectionName)
@@ -1106,16 +1133,21 @@ class Player {
     });
   }
 
-  static void setEmail(String playerName, String newEmail) {
+  static Future<bool> setEmail (String playerName, String newEmail) async {
     if (kDebugMode) {
       print('Setting email for $playerName to $newEmail');
     }
-    FirebaseFirestore.instance
-        .collection(fireStoreCollectionName)
-        .doc(playerName)
-        .update({
-      'Email': newEmail,
-    });
+    try {
+      await FirebaseFirestore.instance
+          .collection(fireStoreCollectionName)
+          .doc(playerName)
+          .update({
+        'Email': newEmail,
+      });
+      return true;
+    } catch(e) {
+      return false;
+    }
   }
 
   static void setWeeksPlayed(int val) {
@@ -1142,40 +1174,35 @@ class Player {
     });
     // print('original history file length ${sourceFile!.length}');
 
-    String filename = fireStoreCollectionName +
-        '/history/' +
-        fireStoreCollectionName +
-        '_' +
-        DateTime.now().toString() +
-        '.csv';
+    String filename = '$fireStoreCollectionName/history/${fireStoreCollectionName}_${DateTime.now()}.csv';
     setWeeksPlayed(Player.weeksPlayed + 1);
     String outputBuf = '';
     String header =
         'Week,Court,oldR,Pres.,+-pl,+-aw,+-Wi,scr1,scr2,scr3,scr4,scr5,Total,newR,Player Name              ,Time Present,Away,ScoredBy\n';
     for (Player pl in db) {
-      outputBuf += Player.weeksPlayed.toString().padLeft(4) + ',';
-      outputBuf += pl.assignedCourt.toString().padLeft(4) + ',';
-      outputBuf += pl.currentRank.toString().padLeft(4) + ',';
-      outputBuf += pl.present.toString().padLeft(5) + ',';
-      outputBuf += pl.movementDueToScore.toString().padLeft(4) + ',';
-      outputBuf += pl.correctedMovementDueToAways.toString().padLeft(4) + ',';
-      outputBuf += pl.movementDueToWinnerJumping.toString().padLeft(4) + ',';
-      outputBuf += pl.score1.toString().padLeft(4) + ',';
-      outputBuf += pl.score2.toString().padLeft(4) + ',';
-      outputBuf += pl.score3.toString().padLeft(4) + ',';
-      outputBuf += pl.score4.toString().padLeft(4) + ',';
-      outputBuf += pl.score5.toString().padLeft(4) + ',';
-      outputBuf += pl.totalScore.toString().padLeft(5) + ',';
-      outputBuf += pl.newRank.toString().padLeft(4) + ',';
-      outputBuf += pl.playerName.toString().padRight(25) + ',';
+      outputBuf += '${Player.weeksPlayed.toString().padLeft(4)},';
+      outputBuf += '${pl.assignedCourt.toString().padLeft(4)},';
+      outputBuf += '${pl.currentRank.toString().padLeft(4)},';
+      outputBuf += '${pl.present.toString().padLeft(5)},';
+      outputBuf += '${pl.movementDueToScore.toString().padLeft(4)},';
+      outputBuf += '${pl.correctedMovementDueToAway.toString().padLeft(4)},';
+      outputBuf += '${pl.movementDueToWinnerJumping.toString().padLeft(4)},';
+      outputBuf += '${pl.score1.toString().padLeft(4)},';
+      outputBuf += '${pl.score2.toString().padLeft(4)},';
+      outputBuf += '${pl.score3.toString().padLeft(4)},';
+      outputBuf += '${pl.score4.toString().padLeft(4)},';
+      outputBuf += '${pl.score5.toString().padLeft(4)},';
+      outputBuf += '${pl.totalScore.toString().padLeft(5)},';
+      outputBuf += '${pl.newRank.toString().padLeft(4)},';
+      outputBuf += '${pl.playerName.toString().padRight(25)},';
       // no reason to include the time, if they weren't present
       if (pl.present) {
-        outputBuf += pl.timePresent.toString() + ',';
+        outputBuf += '${pl.timePresent},';
       } else {
         outputBuf += ',';
       }
-      outputBuf += pl.weeksAway.toString() + ',';
-      outputBuf += pl.scoreLastUpdatedBy.toString().padLeft(15) + ',\n';
+      outputBuf += '${pl.weeksAway},';
+      outputBuf += '${pl.scoreLastUpdatedBy.toString().padLeft(15)},\n';
     }
     try {
       await firebase_storage.FirebaseStorage.instance.ref(filename).putString(
@@ -1187,12 +1214,7 @@ class Player {
       }
     }
     try {
-      filename = fireStoreCollectionName +
-          '/history/' +
-          fireStoreCollectionName +
-          '_complete_' +
-          DateTime.now().toString() +
-          '.csv';
+      filename = '$fireStoreCollectionName/history/${fireStoreCollectionName}_complete_${DateTime.now()}.csv';
       if (kDebugMode) {
         print(
             'in uploadScore: starting with file $latestCompleteHistoryFile writing to file $filename');
@@ -1229,25 +1251,7 @@ class Player {
       scoreUpdate.update(doc, {
         'Rank': db[index].newRank,
         'WeeksAway': db[index].weeksAway,
-        'LastMovement': db[index].currentRank.toString() +
-            ':' +
-            db[index].newRank.toString() +
-            ':' +
-            db[index].movementDueToScore.toString() +
-            ':' +
-            db[index].correctedMovementDueToAways.toString() +
-            ':' +
-            db[index].movementDueToWinnerJumping.toString()+
-            ':' +
-            db[index].score1.toString()+
-            ':' +
-            db[index].score2.toString()+
-            ':' +
-            db[index].score3.toString()+
-            ':' +
-            db[index].score4.toString()+
-            ':' +
-            db[index].score5.toString(),
+        'LastMovement': '${db[index].currentRank}:${db[index].newRank}:${db[index].movementDueToScore}:${db[index].correctedMovementDueToAway}:${db[index].movementDueToWinnerJumping}:${db[index].score1}:${db[index].score2}:${db[index].score3}:${db[index].score4}:${db[index].score5}',
       });
     }
     doc = FirebaseFirestore.instance

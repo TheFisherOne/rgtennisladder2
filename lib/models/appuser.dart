@@ -1,7 +1,7 @@
 
 String signedInEmail='';
 class Appuser{
-  final String uid;
+  late String uid;
 
-  Appuser({required this.uid});
+  Appuser(this.uid);
 }

@@ -40,25 +40,6 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _getInstanceId();
-  // }
-  //
-  // void _getInstanceId() async {
-  //   kIsWeb ? await Firebase.initializeApp(options:firebaseConfig):await Firebase.initializeApp();
-  //   print('initializeApp #1');
-  //   var token = await FirebaseMessaging.instance.getToken(vapidKey:
-  //       "BIJRH946B5EhhmsTY_ktd4njzHVDrgSmBbJ_ld1_m4-v6H576G4NwBjCq1bNWFJb3jdKu5HW0fDhqWQz4MI7ytM");
-  //   if (token != null) {
-  //     print("Instance ID: " + token);
-  //   } else {
-  //     print("null token received from FirebaseMessaging");
-  //   }
-  // }
-
-  // void _initMessaging()async {
   @override
   Widget build(BuildContext context) {
     // print('in main build');

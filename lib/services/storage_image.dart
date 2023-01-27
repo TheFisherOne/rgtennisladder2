@@ -49,7 +49,7 @@ class _ImageItemState extends State<ImageItem> {
         });
       }).catchError((error) {
         if (kDebugMode) {
-          print('error on loading file $error');
+          print('error on loading file ${widget.fullPath} :: $error');
         }
       });
     }

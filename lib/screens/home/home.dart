@@ -8,21 +8,25 @@ import 'package:flutter/material.dart';
 import 'package:rgtennisladder/services/auth.dart';
 import 'package:location/location.dart';
 import 'package:rgtennisladder/screens/home/history.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../main.dart';
+import '../../services/storage_image.dart';
 import 'administration.dart';
 import 'enter_scores2.dart';
 
-_HomeState? homeStateInstance;
+
+HomeState? homeStateInstance;
+
 enum Menu { itemOne, itemTwo, itemThree, itemFour }
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
 
   @override
-  State<Home> createState() => _HomeState();
+  State<Home> createState() => HomeState();
 }
 
-class _HomeState extends State<Home> {
+class HomeState extends State<Home> {
   bool _freezeCheckIns = false;
   bool _colorAdminIconRed = Player.admin1Enabled;
 
@@ -30,7 +34,7 @@ class _HomeState extends State<Home> {
 
   final LocationService _loc = LocationService();
   bool _locInitialized = false;
-  String _selectedMenu='';
+  String _selectedMenu = '';
 
   void updateAdmin1() {
     setState(() {
@@ -88,7 +92,8 @@ class _HomeState extends State<Home> {
 
     double screenWidth = MediaQuery.of(context).size.width;
     _colorAdminIconRed = Player.admin1Enabled;
-    // print('ladder: $fireStoreCollectionName');
+
+    // print('home build ladder: $fireStoreCollectionName user: $loggedInPlayerName');
     return Scaffold(
       backgroundColor: appBackgroundColor,
       appBar: AppBar(
@@ -97,7 +102,7 @@ class _HomeState extends State<Home> {
         elevation: 0.0,
         actions: <Widget>[
           PopupMenuButton<int>(
-            // Callback that sets the selected popup menu item.
+              // Callback that sets the selected popup menu item.
               onSelected: (int item) {
                 setState(() {
                   _selectedMenu = ladderList[item];
@@ -108,31 +113,31 @@ class _HomeState extends State<Home> {
                 });
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
-                PopupMenuItem<int>(
-                  value: 0,
-                  child: Text(ladderList[0]),
-                ),
-                PopupMenuItem<int>(
-                  value: 1,
-                  child: Text(ladderList[1]),
-                ),
-                PopupMenuItem<int>(
-                  value: 2,
-                  child: Text(ladderList[2]),
-                ),
-                PopupMenuItem<int>(
-                  value: 3,
-                  child: Text(ladderList[3]),
-                ),
-                PopupMenuItem<int>(
-                  value: 4,
-                  child: Text(ladderList[4]),
-                ),
-                PopupMenuItem<int>(
-                  value: 5,
-                  child: Text(ladderList[5]),
-                ),
-              ]),
+                    PopupMenuItem<int>(
+                      value: 0,
+                      child: Text(ladderList[0]),
+                    ),
+                    PopupMenuItem<int>(
+                      value: 1,
+                      child: Text(ladderList[1]),
+                    ),
+                    PopupMenuItem<int>(
+                      value: 2,
+                      child: Text(ladderList[2]),
+                    ),
+                    PopupMenuItem<int>(
+                      value: 3,
+                      child: Text(ladderList[3]),
+                    ),
+                    PopupMenuItem<int>(
+                      value: 4,
+                      child: Text(ladderList[4]),
+                    ),
+                    PopupMenuItem<int>(
+                      value: 5,
+                      child: Text(ladderList[5]),
+                    ),
+                  ]),
           // ((fireStoreCollectionName.length > 9) &&
           //         (fireStoreCollectionName.substring(0, 9) == 'rg_monday'))
           //     ? IconButton(
@@ -206,17 +211,15 @@ class _HomeState extends State<Home> {
             // check if the uid has been filled in yet or not
             // print('home StreamBuilder loggedInPlayerName $loggedInPlayerName');
             for (Player pl in pdb) {
-              if ((pl.playerName == loggedInPlayerName) & (pl.uid == '')) {
-                pl.setUID(loggedInUID);
+              if (pl.playerName == loggedInPlayerName) {
+                  if (pl.uid == '') {
+                  pl.setUID(loggedInUID);
+                } else if (pl.uid != loggedInUID) {
+                  loggedInPlayerName = 'NEW email? $loggedInPlayerName';
+                }
               }
             }
-            // var orderOfCourts = orderOfCourts2;
-            // if (Player.topOn1) {
-            //   orderOfCourts = orderOfCourts1;
-            // }
-            // if (fireStoreCollectionName == 'rg_thursday_600') {
-            //   orderOfCourts = orderOfCourtsThursday;
-            // }
+
             var orderOfCourts =
                 orderOfCourtsFull.sublist(0, Player.numberOfAssignedCourts);
             if ((Player.numberOfAssignedCourts >= 3) & (Player.topOn1)) {
@@ -228,9 +231,16 @@ class _HomeState extends State<Home> {
             // if (kDebugMode) {
             //   print('picking from courts $orderOfCourts  ${Player.numberOfAssignedCourts}');
             // }
+            String adName='';
+            if (Player.adNumber>0) {
+              adName = 'assets/TennisAd${Player.adNumber.toString().padLeft(
+                  3, '0')}.jpg';
+            }
+            // print('adName: $adName');
 
             return Column(
               children: [
+
                 Text(Player.courtInfoString,
                     style: const TextStyle(fontSize: 20)),
                 Expanded(
@@ -238,8 +248,26 @@ class _HomeState extends State<Home> {
                       separatorBuilder: (context, index) =>
                           const Divider(color: Colors.black),
                       padding: const EdgeInsets.all(8),
-                      itemCount: numberOfPlayers,
-                      itemBuilder: (BuildContext context, int index) {
+                      itemCount: numberOfPlayers+1,
+                      itemBuilder: (BuildContext context, int row) {
+                        int index=row-1;
+                        if (row==0) {
+                          if (adName!='') {
+                            if (Player.adLink.isNotEmpty) {
+                              return InkWell(child: StorageImage(fullPath: adName),
+                              onTap: () async {
+                                await launchUrl(Uri.parse(Player.adLink));
+
+                              }
+                              // onTap: () => launchUrl(Uri(path: Player.adLink)),
+                              );
+                            } else {
+                              return StorageImage(fullPath: adName);
+                            }
+                          } else {
+                            return const Text('');
+                          }
+                        }
                         return Container(
                           // setting the background color of each line
                           color: pdb[index].assignedCourt > 0
@@ -275,8 +303,7 @@ class _HomeState extends State<Home> {
                                           playersOnCourt[plNum] = -1;
                                         }
 
-                                        if (true |
-                                            Player.admin1Enabled |
+                                        if (Player.admin1Enabled |
                                             (pdb[playersOnCourt[
                                                         playerToEnterScore]]
                                                     .uid ==
@@ -288,36 +315,23 @@ class _HomeState extends State<Home> {
                                               context,
                                               MaterialPageRoute(
                                                   builder: (context) =>
-                                                      EnterScores2()));
+                                                      const EnterScores2()));
                                         }
                                       }
                                     },
                                     child: (pdb[index].assignedCourt < 0
                                         ? Text(
-                                            plusMinus.format(0) +
-                                                plusMinus.format(pdb[index]
-                                                    .correctedMovementDueToAways) +
-                                                plusMinus.format(pdb[index]
-                                                    .movementDueToWinnerJumping) +
-                                                '=' +
-                                                pdb[index].newRank.toString() +
-                                                '  ',
+                                            '${plusMinus.format(0)}${plusMinus.format(pdb[index].correctedMovementDueToAway)}${plusMinus.format(pdb[index].movementDueToWinnerJumping)}=${pdb[index].newRank}  ',
                                             style: nameStyle,
                                           )
                                         : Text(
-                                            plusMinus.format(pdb[index]
-                                                    .movementDueToScore) +
-                                                plusMinus.format(pdb[index]
-                                                    .correctedMovementDueToAways) +
-                                                plusMinus.format(pdb[index]
-                                                    .movementDueToWinnerJumping) +
-                                                '=' +
-                                                pdb[index].newRank.toString() +
-                                                '  ',
+                                            '${plusMinus.format(pdb[index].movementDueToScore)}${plusMinus.format(pdb[index].correctedMovementDueToAway)}${plusMinus.format(pdb[index].movementDueToWinnerJumping)}=${pdb[index].newRank}  ',
                                             style: nameStyle)))
                                 : pdb[index].weeksAway == 0
                                     ? Checkbox(
-                              activeColor: pdb[index].admin>0?Colors.green:Colors.blue,
+                                        activeColor: pdb[index].admin > 0
+                                            ? Colors.green
+                                            : Colors.blue,
                                         value: pdb[index].present,
                                         onChanged: (bool? value) {
                                           if (Player.admin1Enabled) {
@@ -369,22 +383,8 @@ class _HomeState extends State<Home> {
                                                         return AlertDialog(
                                                             title: const Text(
                                                                 'Location,Location,Location'),
-                                                            content: Text('You have to be at the club before you can check in!  ' +
-                                                                ((myLocation.latitude! -
-                                                                            Player
-                                                                                .rgLatitude) /
-                                                                        Player
-                                                                            .rgHowClose)
-                                                                    .toStringAsFixed(
-                                                                        2) +
-                                                                " : " +
-                                                                ((myLocation.longitude! -
-                                                                            Player
-                                                                                .rgLongitude) /
-                                                                        Player
-                                                                            .rgHowClose)
-                                                                    .toStringAsFixed(
-                                                                        2)));
+                                                            content: Text(
+                                                                'You have to be at the club before you can check in! \n${((myLocation.latitude! - Player.rgLatitude) / Player.rgHowClose).toStringAsFixed(2)} : ${((myLocation.longitude! - Player.rgLongitude) / Player.rgHowClose).toStringAsFixed(2)}'));
                                                       });
                                                 }
                                               }
@@ -395,7 +395,8 @@ class _HomeState extends State<Home> {
                                                     return const AlertDialog(
                                                         title: Text(
                                                             'You have to enable location '),
-                                                        content: Text('Enable location for the browser too')  );
+                                                        content: Text(
+                                                            'Enable location for the browser too'));
                                                   });
                                             });
                                           }
@@ -415,21 +416,17 @@ class _HomeState extends State<Home> {
                                     ? '${pdb[index].currentRank.toString()}:'
                                         '${pdb[index].playerName.substring(0, pdb[index].playerName.lastIndexOf(' ')) + pdb[index].playerName.substring(pdb[index].playerName.lastIndexOf(' ') + 1, pdb[index].playerName.lastIndexOf(' ') + 2)}'
                                     : '${pdb[index].currentRank}: ${pdb[index].playerName}',
-                                style: (loggedInUID == pdb[index].uid)
+                                style: (loggedInPlayerName ==
+                                        pdb[index].playerName)
                                     ? nameBoldStyle
-                                    : nameStyle,
+                                    : pdb[index].admin > 0
+                                        ? italicNameStyle
+                                        : nameStyle,
                               ),
                             )),
                             _freezeCheckIns & pdb[index].present
                                 ? (Text(
-                                    ((pdb[index].assignedCourt > 0)
-                                            ? orderOfCourts[
-                                                    pdb[index].assignedCourt -
-                                                        1]
-                                                .toString()
-                                            : '') +
-                                        ':' +
-                                        pdb[index].totalScore.toString(),
+                                    '${(pdb[index].assignedCourt > 0) ? orderOfCourts[pdb[index].assignedCourt - 1].toString() : ''}:${pdb[index].totalScore}',
                                     style: nameStyle,
                                   ))
                                 : Text(

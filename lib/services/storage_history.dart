@@ -62,6 +62,7 @@ class StorageHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // print('StorageHistory build $fullPath');
     return Container(
       // this is probably an extra container
       child: makeChildImage(),
@@ -96,7 +97,7 @@ class _HistoryItemState extends State<HistoryItem> {
         //_imageFile already set
       });
     } else {
-      // print('HistoryStorage fullPath ${widget.fullPath}');
+      // print('HistoryStorage getting new data fullPath ${widget.fullPath}');
       FirebaseStorage.instance.ref(widget.fullPath).getData(1000000).then((
           data) {
         setState(() {

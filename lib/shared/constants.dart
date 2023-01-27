@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-const int softwareVersion=3;
+const int softwareVersion=4;
 
 const textInputDecoration = InputDecoration(
     fillColor: Colors.white,
@@ -14,6 +14,11 @@ const textInputDecoration = InputDecoration(
 const double appFontSize=20;
 const nameStyle = TextStyle(
     decoration: TextDecoration.none,
+    fontSize: appFontSize,
+    fontWeight: FontWeight.normal);
+const italicNameStyle = TextStyle(
+    decoration: TextDecoration.none,
+    fontStyle: FontStyle.italic,
     fontSize: appFontSize,
     fontWeight: FontWeight.normal);
 

@@ -8,7 +8,7 @@ class AuthService {
   final FirebaseAuth _auth= FirebaseAuth.instance;
 
   Appuser? _userFromFirebaseUser(User? user){
-    return user!=null ? Appuser(uid:user.uid): null;
+    return user!=null ? Appuser(user.uid): null;
   }
 
   // auth change user stream
@@ -27,6 +27,7 @@ class AuthService {
       UserCredential result = await _auth.signInWithEmailAndPassword(
           email: email,
           password: password);
+
       User? fbUser= result.user;
       return _userFromFirebaseUser(fbUser);
     } catch(e){

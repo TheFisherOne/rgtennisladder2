@@ -1,6 +1,5 @@
 import 'package:rgtennisladder/models/appuser.dart';
 import 'package:rgtennisladder/screens/authenticate/sign_in.dart';
-import 'package:rgtennisladder/screens/home/show_rules.dart';
 import 'package:rgtennisladder/services/player_db.dart';
 import 'package:rgtennisladder/shared/constants.dart';
 import 'package:flutter/foundation.dart';
@@ -14,15 +13,50 @@ class Administration extends StatefulWidget {
   const Administration({Key? key}) : super(key: key);
 
   @override
-  _AdministrationState createState() => _AdministrationState();
+  AdministrationState createState() => AdministrationState();
 }
 
-class _AdministrationState extends State<Administration> {
+class AdministrationState extends State<Administration> {
   String _enteredName = '';
   String _selectedPlayer = Player.db.first.playerName;
   int _newRank = 0;
   int _newAdminLevel = 0;
   final TextEditingController _createUserController = TextEditingController();
+  String _newEmail='';
+  String _newPassword='';
+  String _newUserErrorMessage='';
+
+  void createUser() async {
+    try {
+      await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: _newEmail,
+        password: _newPassword,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'weak-password') {
+        if (kDebugMode) {
+          print('The password provided is too weak.');
+        }
+        _newUserErrorMessage='The password provided is too weak.';
+      } else if (e.code == 'email-already-in-use') {
+        if (kDebugMode) {
+          print('The account already exists for that email.');
+        }
+        _newUserErrorMessage='The account already exists for that email.';
+      }
+      return;
+    } catch (e) {
+      if (kDebugMode) {
+        print(e);
+      }
+      _newUserErrorMessage=e.toString();
+      return;
+    }
+    _newEmail='';
+    _newPassword='';
+    _newUserErrorMessage='';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,14 +120,14 @@ class _AdministrationState extends State<Administration> {
                 actions: const [],
               ),
               body: ListView(shrinkWrap: true, children: [
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black, backgroundColor: Colors.blue),
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder:(context)=>const ShowRules()));
-                  },
-                  child: const Text('Open PDF of rules'),
-                ),
+                // OutlinedButton(
+                //   style: OutlinedButton.styleFrom(
+                //       foregroundColor: Colors.black, backgroundColor: Colors.blue),
+                //   onPressed: () {
+                //     Navigator.push(context, MaterialPageRoute(builder:(context)=>const ShowRules()));
+                //   },
+                //   child: const Text('Open PDF of rules'),
+                // ),
                 const SizedBox(height:10),
                 makeDoubleConfirmationButton(
                     buttonText: 'Send Reset Password Email',
@@ -139,7 +173,6 @@ class _AdministrationState extends State<Administration> {
                         : (value) {
                             if (homeStateInstance != null) {
                               setState(() {
-                                //print('onchanged of freezecheckins');
                                 Player.updateFreezeCheckIns(value!);
                               });
                             }
@@ -481,11 +514,52 @@ class _AdministrationState extends State<Administration> {
                       }
                       });
                     }):const Text(''),
+                const SizedBox(height: 10.0),
+                TextFormField(
+                  enabled: (Player.admin2Enabled),
+                  decoration: textInputDecoration.copyWith(
+                      hintText: 'Email',
+                      suffixIcon: const Icon(Icons.email)),
+                  obscureText: false,
+                  autofillHints: const [AutofillHints.email],
+                  onChanged: (val) {
+                    setState(() => _newEmail = val);
+                  },
+                ),
+                const SizedBox(height: 10.0),
+                TextFormField(
+                  enabled: (Player.admin2Enabled),
+                  decoration: textInputDecoration.copyWith(
+                      hintText: 'Password',
+                      suffixIcon: const Icon(Icons.password)),
+                  validator: (val) => (val!.length < 6)
+                      ? 'Password has to be at least 6 chars long'
+                      : null,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.password],
+                  onChanged: (val) {
+                    setState(() => _newPassword = val);
+                  },
+                ),
+                const SizedBox(height: 10.0),
+                ((_newEmail.length>=6)&&(_newPassword.length>=6))?
                 makeDoubleConfirmationButton(
-                    buttonText: 'Reset Login Credentials',
-                    dialogTitle: 'Reset Login Credentials',
+                    buttonText: 'create new Login',
+                    dialogTitle: 'Create a new login for $_newEmail ?',
                     dialogQuestion:
-                        'Are you sure you want remove login credentials for  $_selectedPlayer?',
+                    'Are you sure you want to create a new login for $_newEmail?\n NOTE: YOU WILL BE LOGGED IN AS THEM\nYou will need to logout!',
+                    disabled: (!Player.admin2Enabled),
+                    onOk: () {
+                      createUser(); // this is async
+
+                    }):const Text(''),
+                Text(_newUserErrorMessage),
+                const SizedBox(height: 10.0),
+                makeDoubleConfirmationButton(
+                    buttonText: 'Disassociate this Name with any email',
+                    dialogTitle: 'Disassociate this Name with any email',
+                    dialogQuestion:
+                        'Are you sure you want a new email to attach to this account  $_selectedPlayer?',
                     disabled: (!Player.admin2Enabled),
                     onOk: () {
                       Player.clearUID(_selectedPlayer);

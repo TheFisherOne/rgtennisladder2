@@ -36,6 +36,7 @@ String? playerValidator(val) {
   }
   return null;
 }
+
 void setLadder(String val) async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -45,14 +46,15 @@ void setLadder(String val) async {
     print('setLadder: fireStoreCollectionName now: $fireStoreCollectionName');
   }
 }
+
 class SignIn extends StatefulWidget {
   const SignIn({Key? key}) : super(key: key);
 
   @override
-  _SignInState createState() => _SignInState();
+  SignInState createState() => SignInState();
 }
 
-class _SignInState extends State<SignIn> {
+class SignInState extends State<SignIn> {
   final AuthService _auth = AuthService();
   final _formKey = GlobalKey<FormState>();
   bool loading = false;
@@ -81,9 +83,8 @@ class _SignInState extends State<SignIn> {
 
   @override
   Widget build(BuildContext context) {
-
-    if (fireStoreCollectionName.isEmpty){
-      _ladder=ladderList[0];
+    if (fireStoreCollectionName.isEmpty) {
+      _ladder = ladderList[0];
       setCollectionName(ladderList[0]);
     }
     return loading
@@ -104,152 +105,168 @@ class _SignInState extends State<SignIn> {
             body: ListView(
                 padding: const EdgeInsets.symmetric(
                     vertical: 20.0, horizontal: 50.0),
-                children: [Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        AutofillGroup(
-                          child: Column(children: [
-                            const SizedBox(height: 20.0),
+                children: [
+                  Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          AutofillGroup(
+                            child: Column(children: [
+                              const SizedBox(height: 20.0),
 
-                            Row(
-                              children: [
-                                const Text(
-                                  ':',
-                                  style: nameStyle,
-                                ),
-                                FormField<String>(
-                                  builder: (FormFieldState<String> state){
-                                  return Expanded(
-                                    child: InputDecorator(
-                                      decoration: textInputDecoration,
-                                      child: SizedBox(
-                                        height: 25,
-                                        child: DropdownButtonHideUnderline(
-                                          child: DropdownButton<String>(
-                                            style: nameStyle,
-                                            items: ladderList.map((String value) {
-                                              return DropdownMenuItem<String>(
-                                                value: value,
-                                                child: Text(value),
-                                              );
-                                            }).toList(),
-                                            value: _ladder,
-                                            onChanged: (val) {
-                                              if (val != null) {
-                                                if (val == 'testing') {
-                                                  val = 'rgtennisladdermonday600';
+                              Row(
+                                children: [
+                                  const Text(
+                                    ':',
+                                    style: nameStyle,
+                                  ),
+                                  FormField<String>(
+                                      builder: (FormFieldState<String> state) {
+                                    return Expanded(
+                                      child: InputDecorator(
+                                        decoration: textInputDecoration,
+                                        child: SizedBox(
+                                          height: 25,
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<String>(
+                                              style: nameStyle,
+                                              items: ladderList
+                                                  .map((String value) {
+                                                return DropdownMenuItem<String>(
+                                                  value: value,
+                                                  child: Text(value),
+                                                );
+                                              }).toList(),
+                                              value: _ladder,
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  if (val == 'testing') {
+                                                    val ='';
+                                                        // 'rgtennisladdermonday600';
+                                                  }
+                                                  setState(() {
+                                                    _setLadder(val!);
+                                                  });
                                                 }
-                                                setState(() {
-                                                  _setLadder(val!);
-                                                });
-                                              }
-                                            },
-                                ),
+                                              },
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  );}),
-                              ],
-                            ),
-                            // TextFormField(
-                            //   initialValue: _ladder,
-                            //   decoration: textInputDecoration.copyWith(
-                            //     hintText: 'Ladder Name',
-                            //     suffixIcon: const Icon(Icons.group),
-                            //   ),
-                            //   validator: ladderValidator,
-                            //   onChanged: (val) {
-                            //
-                            //     setState(() {
-                            //       setLadder(val);
-                            //     });
-                            //   },
-                            // ),
-                            const SizedBox(height: 20.0),
-                            TextFormField(
-                              initialValue: _player,
-                              decoration: textInputDecoration.copyWith(
-                                hintText: 'First Name AND Last name',
-                                suffixIcon: const Icon(Icons.verified_user),
+                                    );
+                                  }),
+                                ],
                               ),
-                              validator: playerValidator,
-                              onChanged: (val) {
-                                String newVal = val.trim();
-                                newVal = newVal.replaceAll('  ', ' ');
-                                setState(() {
-                                  setPlayer(newVal);
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 20.0),
-                            TextFormField(
-                              decoration: textInputDecoration.copyWith(
-                                  hintText: 'Email',
-                                  suffixIcon: const Icon(Icons.email)),
-                              keyboardType: TextInputType.emailAddress,
-                              autofillHints: const [
-                                AutofillHints.username,
-                                AutofillHints.email,
-                              ],
-                              validator: (val) => val!.isEmpty
-                                  ? 'A valid email is required'
-                                  : null,
-                              onChanged: (val) {
-                                setState(() => email = val);
-                              },
-                            ),
-                            const SizedBox(height: 20.0),
-                            TextFormField(
-                              decoration: textInputDecoration.copyWith(
-                                  hintText: 'Password',
-                                  suffixIcon: const Icon(Icons.password)),
-                              validator: (val) => (val!.length < 6)
-                                  ? 'Password has to be at least 6 chars long'
-                                  : null,
-                              obscureText: true,
-                              autofillHints: const [AutofillHints.password],
-                              onChanged: (val) {
-                                setState(() => password = val);
-                              },
-                            ),
-                            const SizedBox(height: 20.0),
-                            ElevatedButton(
-                              onPressed: () async {
-                                dynamic result;
-                                if (_formKey.currentState!.validate()) {
-                                  setState(() => loading = true);
-                                  setCollectionName(_ladder);
-                                  result =
-                                      await _auth.signInWithEmailAndPassword(
-                                          email, password);
+                              // TextFormField(
+                              //   initialValue: _ladder,
+                              //   decoration: textInputDecoration.copyWith(
+                              //     hintText: 'Ladder Name',
+                              //     suffixIcon: const Icon(Icons.group),
+                              //   ),
+                              //   validator: ladderValidator,
+                              //   onChanged: (val) {
+                              //
+                              //     setState(() {
+                              //       setLadder(val);
+                              //     });
+                              //   },
+                              // ),
+                              const SizedBox(height: 20.0),
+                              TextFormField(
+                                initialValue: _player,
+                                decoration: textInputDecoration.copyWith(
+                                  hintText: 'First Name AND Last name',
+                                  suffixIcon: const Icon(Icons.verified_user),
+                                ),
+                                validator: playerValidator,
+                                onChanged: (val) {
+                                  String newVal = val.trim();
+                                  newVal = newVal.replaceAll('  ', ' ');
+                                  setState(() {
+                                    setPlayer(newVal);
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 20.0),
+                              TextFormField(
+                                decoration: textInputDecoration.copyWith(
+                                    hintText: 'Email',
+                                    suffixIcon: const Icon(Icons.email)),
+                                keyboardType: TextInputType.emailAddress,
+                                autofillHints: const [
+                                  AutofillHints.username,
+                                  AutofillHints.email,
+                                ],
+                                validator: (val) => val!.isEmpty
+                                    ? 'A valid email is required'
+                                    : null,
+                                onChanged: (val) {
+                                  setState(() => email = val);
+                                },
+                              ),
+                              const SizedBox(height: 20.0),
+                              TextFormField(
+                                decoration: textInputDecoration.copyWith(
+                                    hintText: 'Password',
+                                    suffixIcon: const Icon(Icons.password)),
+                                validator: (val) => (val!.length < 6)
+                                    ? 'Password has to be at least 6 chars long'
+                                    : null,
+                                obscureText: true,
+                                autofillHints: const [AutofillHints.password],
+                                onChanged: (val) {
+                                  setState(() => password = val);
+                                },
+                              ),
+                              const SizedBox(height: 20.0),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  dynamic result;
+                                  if (_formKey.currentState!.validate()) {
+                                    setState(() => loading = true);
+                                    setCollectionName(_ladder);
+                                    result =
+                                        await _auth.signInWithEmailAndPassword(
+                                            email, password);
 
-                                  if (result == null) {
-                                    setState(() {
-                                      error =
-                                          'could not sign in with those credentials';
-                                      loading = false;
-                                    });
-                                  } else {
-                                    loggedInPlayerName = _player!;
-                                    fireStoreCollectionName = _ladder;
-                                    signedInEmail = email;
-                                    Player.setEmail(loggedInPlayerName!, signedInEmail);
+                                    if (result == null) {
+                                      setState(() {
+                                        error =
+                                            'could not sign in with those credentials';
+                                        loading = false;
+                                      });
+                                    } else {
+                                        if (kDebugMode) {
+                                          print('sign_in new player: $_player');
+                                        }
+                                        loggedInPlayerName = _player!;
+                                        fireStoreCollectionName = _ladder;
+                                        signedInEmail = email;
+                                        bool success= await Player.setEmail(
+                                            loggedInPlayerName!, signedInEmail);
+                                        if (!success){
+                                          // the entered name does not match a current document in the database
+                                          // so fail the login.
+                                          if (kDebugMode) {
+                                            print('FAILED to find name $_player! in the database $fireStoreCollectionName');
+                                          }
+                                        }
+                                    }
                                   }
-                                }
-                              },
-                              child: const Text('Sign In',
-                                  style: TextStyle(color: Colors.white)),
-                            ),
-                            const SizedBox(height: 12.0),
-                            Text(
-                              error,
-                              style: const TextStyle(
-                                  color: Colors.red, fontSize: appFontSize),
-                            )
-                          ]),
-                        ),
-                      ],
-                    ))]));
+                                },
+                                child: const Text('Sign In',
+                                    style: TextStyle(color: Colors.white)),
+                              ),
+                              const SizedBox(height: 12.0),
+                              Text(
+                                error,
+                                style: const TextStyle(
+                                    color: Colors.red, fontSize: appFontSize),
+                              )
+                            ]),
+                          ),
+                        ],
+                      ))
+                ]));
   }
 }

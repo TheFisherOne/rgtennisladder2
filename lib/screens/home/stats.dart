@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -10,14 +11,14 @@ import 'package:rgtennisladder/services/player_db.dart';
 import 'package:rgtennisladder/shared/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/storage_history.dart';
-import '../wrapper.dart';
 import 'package:rgtennisladder/screens/home/history.dart';
 
 int statsPlayerNumber = -1;
 Future<void> uploadPicture(XFile file) async {
   String filename =
-      fireStoreCollectionName + '/player_pictures/' + loggedInPlayerName!;
+      '$fireStoreCollectionName/player_pictures/${loggedInPlayerName!}';
   Uint8List fileData;
   img.Image? image;
   try {
@@ -55,7 +56,7 @@ class Stats extends StatefulWidget {
   const Stats({Key? key}) : super(key: key);
 
   @override
-  _StatsState createState() => _StatsState();
+  StatsState createState() => StatsState();
 }
 
 Future<Image> getPlayerImage(playerNumber) async {
@@ -91,7 +92,7 @@ Future<Image> getPlayerImage(playerNumber) async {
   ) as Future<Image>;
 }
 
-class _StatsState extends State<Stats> {
+class StatsState extends State<Stats> {
   String? _imagePath;
   parentSetState(playerNumber) {
     setState(() {
@@ -102,16 +103,20 @@ class _StatsState extends State<Stats> {
 
   @override
   Widget build(BuildContext context) {
-    String playerName = '';
-    for (int index = 0; index < Player.db.length; index++) {
-      if (Player.db[index].uid == loggedInUID) {
-        playerName = Player.db[index].playerName;
-      }
-    }
+    // String playerName = '';
+    // for (int index = 0; index < Player.db.length; index++) {
+    //   if (Player.db[index].uid == loggedInUID) {
+    //     playerName = Player.db[index].playerName;
+    //   }
+    // }
     String selectedName = '';
+    String? selectedEmail;
     if (statsPlayerNumber >= 0) {
       selectedName = Player.db[statsPlayerNumber].playerName;
+      selectedEmail=Player.db[statsPlayerNumber].email;
     }
+
+    // print('stats build names: $selectedName, $loggedInPlayerName ');
     if ((playerImageFileList != null) & (statsPlayerNumber >= 0)) {
       for (int index = 0; index < playerImageFileList!.length; index++) {
         if (selectedName == playerImageFileList![index].name) {
@@ -131,7 +136,7 @@ class _StatsState extends State<Stats> {
       child: Scaffold(
         backgroundColor: Colors.brown[50],
         appBar: AppBar(
-          title: Text(playerName + ' vs \n' + selectedName),
+          title: Text('$loggedInPlayerName vs \n$selectedName'),
           backgroundColor: Colors.brown[400],
           elevation: 0.0,
           actions: [
@@ -150,7 +155,16 @@ class _StatsState extends State<Stats> {
             shrinkWrap: true,
             padding: const EdgeInsets.all(10),
             children: [
-              playerName != selectedName
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black, backgroundColor: Colors.blue),
+                onPressed: () async {
+                  await launchUrl(Uri(path: 'assets/assets/DoublesLadderRules.pdf'));
+                  // Navigator.push(context, MaterialPageRoute(builder:(context)=>const ShowRules()));
+                },
+                child: const Text('Open PDF of rules'),
+              ),
+              loggedInPlayerName != selectedName
                   ? (selectedName == ''
                       ? const Text('Please wait for picture to be processed')
                       : const Text('Here are the stats'))
@@ -199,14 +213,24 @@ class _StatsState extends State<Stats> {
                           'Please upload an image so others can recognize you'),
                 ]),
                 Text(
-                  'Admin Level: ' +
-                      ((statsPlayerNumber >= 0)
+                  'Admin Level: ${(statsPlayerNumber >= 0)
                           ? Player.db[statsPlayerNumber].admin.toString()
-                          : 'XX'),
+                          : 'XX'}',
                   style: nameStyle,
                   textAlign: TextAlign.end,
                 ),
-
+                ((selectedEmail!=null)&&((Player.admin2Enabled )|| (loggedInPlayerName == selectedName)))?OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black,
+                        backgroundColor: Colors.blue),
+                    onPressed: () {
+                      if (kDebugMode) {
+                        print('password reset to $selectedEmail');
+                      }
+                      FirebaseAuth.instance.sendPasswordResetEmail(email: selectedEmail!);
+                    },
+                    child: const Text('Send Password Reset Email'))
+                :const Text('Please log out and log in again\nWe have not recorded your email address yet'),
                 Row(children: [
                   const Expanded(
                       child: Text(
@@ -214,7 +238,7 @@ class _StatsState extends State<Stats> {
                     style: nameStyle,
                   )),
                   Expanded(
-                      child: (((Player.admin1Enabled) |
+                      child: Player.admin2Enabled | (((Player.admin1Enabled) |
                                   (Player.db[statsPlayerNumber].playerName ==
                                       loggedInPlayerName)) &
                               ((DateTime.now().weekday !=
@@ -251,9 +275,7 @@ class _StatsState extends State<Stats> {
                               })
                           : ((Player.db[statsPlayerNumber].playerName ==
                                   loggedInPlayerName)
-                              ? Text(Player.db[statsPlayerNumber].weeksAway
-                                      .toString() +
-                                  ' :FROZEN 8am to 10pm\n   on day of ladder!')
+                              ? Text('${Player.db[statsPlayerNumber].weeksAway} :FROZEN 8am to 10pm\n   on day of ladder!')
                               : Text(
                                   Player.db[statsPlayerNumber].weeksAway
                                       .toString(),
@@ -268,12 +290,12 @@ class _StatsState extends State<Stats> {
               const Divider(
                 color: Colors.black,
               ),
-              playerName != selectedName
+              loggedInPlayerName != selectedName
                   ? Row(children: [
                       StorageHistory(
                         fullPath: latestCompleteHistoryFile,
                         //fireStoreCollectionName+'_complete.csv',
-                        loggedInPlayerName: playerName,
+                        loggedInPlayerName: loggedInPlayerName!,
                         comparisonPlayerName: selectedName,
                       )
                     ])

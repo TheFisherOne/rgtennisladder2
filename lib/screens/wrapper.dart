@@ -15,8 +15,8 @@ class Wrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     // return either Home or Authenticate
     // var currentUser = FirebaseAuth.instance.currentUser;
-    final appUser = Provider.of<Appuser?>(context);
-
+    var appUser = Provider.of<Appuser?>(context);
+    // print('Wrapper $appUser ${appUser?.uid}');
     if (appUser!=null){
       loggedInUID=appUser.uid;
       return const Home();
