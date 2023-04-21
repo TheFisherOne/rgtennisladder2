@@ -14,15 +14,15 @@ String? playerValidator(val) {
   if (val.isEmpty) {
     return 'Your Name, first and last are required';
   }
-  // if (val.substring(val.length - 1) == ' ') {
-  //   return 'No trailing space at the end of your name';
-  // }
-  // if (val[0] == ' ') {
-  //   return 'No leading space at the beginning of your name';
-  // }
-  // if (val.indexOf('  ') >= 0) {
-  //   return 'You can not have 2 spaces together';
-  // }
+  if (val.substring(val.length - 1) == ' ') {
+    return 'No trailing space at the end of your name';
+  }
+  if (val[0] == ' ') {
+    return 'No leading space at the beginning of your name';
+  }
+  if (val.indexOf('  ') >= 0) {
+    return 'You can not have 2 spaces together';
+  }
   if (val[0].toUpperCase() != val[0]) {
     return 'Your first name should start with an upper case letter';
   }
@@ -140,12 +140,8 @@ class SignInState extends State<SignIn> {
                                               value: _ladder,
                                               onChanged: (val) {
                                                 if (val != null) {
-                                                  if (val == 'testing') {
-                                                    val ='';
-                                                        // 'rgtennisladdermonday600';
-                                                  }
                                                   setState(() {
-                                                    _setLadder(val!);
+                                                    _setLadder(val);
                                                   });
                                                 }
                                               },

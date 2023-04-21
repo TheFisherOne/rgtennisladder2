@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:rgtennisladder/screens/authenticate/sign_in.dart';
+import 'package:rgtennisladder/screens/home/administration.dart';
 import 'package:rgtennisladder/screens/wrapper.dart';
 import 'package:rgtennisladder/shared/constants.dart';
 import 'package:flutter/cupertino.dart';
@@ -15,6 +16,8 @@ import '../main.dart';
 import '../screens/home/history.dart';
 
 String fireStoreCollectionName = 'no_collection_name';
+List<int> absentOnCourt = List.empty(growable: true);
+final random = Random();
 
 void setCollectionName(String newName) {
   if (newName == fireStoreCollectionName) {
@@ -49,8 +52,8 @@ void buildPlayerImageFileList({refresh = false}) async {
     // print('reading player image files');
     FirebaseStorage.instance
         .ref()
-        .child(fireStoreCollectionName)
-        .child('player_pictures')
+        // .child(fireStoreCollectionName)
+        .child('PlayerPictures')
         .listAll()
         .then((result) async {
       for (var element in result.items) {
@@ -72,7 +75,7 @@ void buildPlayerImageFileList({refresh = false}) async {
 }
 
 class Player {
-  static int adNumber=0;
+  static int adNumber = 0;
   static bool admin1Enabled = false;
   static bool admin2Enabled = false;
   // things there are only 1 of
@@ -95,7 +98,8 @@ class Player {
   static var onUpdate = StreamController<bool>.broadcast();
   static bool topOn1 = true;
   static int numberOfAssignedCourts = 0;
-  static String adLink='';
+  static String adLink = '';
+  static bool weJustConfirmed=false;
 
   String uid = '';
   String playerName = '';
@@ -118,13 +122,15 @@ class Player {
   // things having to do with the entered scores
   int totalScore = 0;
   int movementDueToScore = 0;
+  int placeOnCourt = 0;
+  int origPlaceOnCourt = 0;
   int correctedMovementDueToAway = 0;
   int movementDueToWinnerJumping = 0;
   int newRank = 0;
   String lastMovement = '';
   String? email;
 
-  static buildPlayerDB(AsyncSnapshot<QuerySnapshot> snapshot) {
+  static bool buildPlayerDB(AsyncSnapshot<QuerySnapshot> snapshot) {
     numPresent = 0;
     db = List.empty(growable: true);
     for (var doc in snapshot.requireData.docs) {
@@ -161,22 +167,20 @@ class Player {
           if (kDebugMode) {
             print('SOFTWARE NEEDS UPDATING!!!!!!!!!!');
           }
-          throw OldSoftwareVersion();
+          return false;
         }
       } else {
-        // bool createdNew = false;
+        String? nameError = playerValidator(doc.id);
+        if (nameError != null) {
+          if (kDebugMode) {
+            print('ERROR in database, bad player name:"${doc.id}" $nameError');
+          }
+        }
         int rank = doc.get('Rank');
         if (rank > 0) {
           Player? newPlayer = Player();
-
           newPlayer.playerName = doc.id; // actually player name
-          String? nameError = playerValidator(doc.id);
-          if (nameError != null) {
-            if (kDebugMode) {
-              print(
-                  'ERROR in database, bad player name:"${doc.id}" $nameError');
-            }
-          }
+
           String val = doc.id;
           if (val.substring(val.length - 1) == ' ') {
             if (kDebugMode) {
@@ -211,6 +215,11 @@ class Player {
             newPlayer.weeksAway = doc.get('WeeksAway');
           } catch (e) {
             newPlayer.weeksAway = 0;
+          }
+          try {
+            newPlayer.placeOnCourt = doc.get('PlaceOnCourt');
+          } catch (e) {
+            newPlayer.placeOnCourt = 0;
           }
           try {
             newPlayer.lastMovement = doc.get('LastMovement');
@@ -264,16 +273,13 @@ class Player {
         }
       }
     }
-    // while (numPlayersLoaded < Player.db.length) {
-    //   print('$numPlayersLoaded, ${Player.db.length}: cleaning up extra Player, probably because one was deleted');
-    //   Player.db.removeAt(Player.db.length - 1);
-    // }
 
     // done building the database, now use it
     // what are the assigned courts?
     var skipPlayer = List.filled(Player.db.length, false);
     int oldestIndex;
 
+    bool skippedAtLeastOne = false;
     for (Player pl in db) {
       pl.skipToMakeGoodNumber = false;
     }
@@ -293,6 +299,7 @@ class Player {
         }
       }
       Player.db[oldestIndex].skipToMakeGoodNumber = true;
+      skippedAtLeastOne = true;
       Player.numPresent--;
     }
 
@@ -315,41 +322,108 @@ class Player {
       Player.topOn1 = false;
     }
 
-    for (var i = 0; i < playersPerCourt1.length; i++) {
-      // if (Player.topOn1) {
+    // playersPerCourt1 is of length total number of courts needed
+    // with the first n marked as 5 and the last ones marked as 4
+    // keep the first choice as a court of 5
+    if (playersPerCourt1.length == 3) {
+      int tmp = playersPerCourt1[2];
+      playersPerCourt1[2] = playersPerCourt1[1];
+      playersPerCourt1[1] = tmp;
+    } else if (playersPerCourt1.length == 4) {
+      int tmp = playersPerCourt1[3];
+      playersPerCourt1[3] = playersPerCourt1[1];
+      playersPerCourt1[1] = tmp;
+    } else if (playersPerCourt1.length > 4) {
+      int tmp = playersPerCourt1[4];
+      playersPerCourt1[4] = playersPerCourt1[2];
+      playersPerCourt1[2] = tmp;
+      tmp = playersPerCourt1[2];
+      playersPerCourt1[2] = playersPerCourt1[1];
+      playersPerCourt1[1] = tmp;
+    }
+    List<int> prevPlayersPerCourt = Player.playersPerCourt;
+
+    if (overrideCourt4to5 >= 0) {
+      prevPlayersPerCourt[overrideCourt4to5 - 1] = 5;
+    } else {
+      for (var i = 0; i < playersPerCourt1.length; i++) {
         Player.playersPerCourt[i] =
             playersPerCourt1[(i + rotateAmt) % playersPerCourt1.length];
-      // } else {
-      //   Player.playersPerCourt[i] = playersPerCourt1[playersPerCourt1.length -
-      //       1 -
-      //       ((i + rotateAmt) % playersPerCourt1.length)];
-      // }
+      }
     }
 
     int court = 1;
     int numAssigned = 0;
+    List<int> onACourtOf = List.filled(Player.db.length, 0);
+    absentOnCourt = List.filled(Player.db.length, 0);
+    int playerIndex = 0;
+    int playersOnLastCourt = 0;
+    int lastCourt = -1;
     for (Player pl in Player.db) {
       if ((!pl.skipToMakeGoodNumber) & (pl.present)) {
         if ((court > Player.courtsAvailable) |
             (playersPerCourt[court - 1] <= 0)) {
+          // we ran out of available courts
           pl.assignedCourt = 0;
+          onACourtOf[playerIndex] = playersPerCourt[court - 1];
+          // print('playerIndex $playerIndex');
         } else {
+          // normal case
           pl.assignedCourt = court;
           numAssigned++;
+          onACourtOf[playerIndex] = playersPerCourt[court - 1];
 
           if (numAssigned >= Player.playersPerCourt[court - 1]) {
+            // last person on the court move to next court
+            playersOnLastCourt = Player.playersPerCourt[court - 1];
+            lastCourt = court;
             numAssigned = 0;
             court++;
+          } else {
+            playersOnLastCourt = Player.playersPerCourt[court - 1];
+            lastCourt = court;
           }
         }
       } else {
+        // special case of skipping players that are present
+        // AND the players that are not present
+        if (playersPerCourt[court - 1] == 0) {
+          // at end of list
+          if (court >= 2) {
+            // handle special case when very few people here
+            onACourtOf[playerIndex] = playersPerCourt[court - 2];
+          }
+          if (!pl.present &&
+              !skippedAtLeastOne &&
+              (onACourtOf[playerIndex] != 5)) {
+            absentOnCourt[playerIndex] = lastCourt;
+          }
+        } else {
+          if ((playersOnLastCourt == 4) || (playersPerCourt[court - 1] == 4)) {
+            if ((!pl.present) &&
+                (playersPerCourt[court - 1] == 4) &&
+                !skippedAtLeastOne) {
+              absentOnCourt[playerIndex] = court;
+            } else if ((!pl.present) &&
+                (playersOnLastCourt == 4) &&
+                !skippedAtLeastOne) {
+              absentOnCourt[playerIndex] = court - 1;
+            }
+            onACourtOf[playerIndex] = 4;
+          } else {
+            onACourtOf[playerIndex] = 5;
+          }
+        }
         if (pl.skipToMakeGoodNumber) {
           pl.assignedCourt = 0;
         } else {
           pl.assignedCourt = -1;
         }
       }
+      playerIndex += 1;
     }
+    // print('onACourtOf    $onACourtOf');
+    // print('absentOnCourt $absentOnCourt');
     numberOfAssignedCourts = court - 1;
     courtInfoString = getCourtInfoString();
 
@@ -422,47 +496,6 @@ class Player {
     // List<int> presentRank = List.filled(Player.db.length, -1);
     List<int> movementDueToAway = List.filled(Player.db.length, 0);
 
-    // for (Player pl in Player.db) {
-    //   int rank = pl.currentRank;
-    //   int courtsToDrop=2;
-    //   // if (pl.weeksAway>0){
-    //   //   courtsToDrop=1;
-    //   // }
-    //   if (pl.present) {
-    //     presentRank[rank - 1] = rank;
-    //   } else {
-    //     awayRank[rank + courtsToDrop - 1] = rank;
-    //   }
-    // }
-    // // print('PresentRank: $presentRank');
-    // // print('awayRank1: $awayRank');
-    // int presentIndex = 0;
-    // for (int i = 0; i < Player.db.length; i++) {
-    //   if (awayRank[i] < 0) {
-    //     for (int j = presentIndex; j < presentRank.length; j++) {
-    //       if (presentRank[j] >= 0) {
-    //         awayRank[i] = presentRank[j];
-    //         presentIndex = j + 1;
-    //         break;
-    //       }
-    //     }
-    //   }
-    // }
-    // // now fix up case where there was no one present to put above people who had to move down2
-    // for (int j = 0; j < 2; j++) {
-    //   //might have to shuffle out 2 empty slots
-    //   bool doShift = false;
-    //   for (int i = 0; i < Player.db.length + 1; i++) {
-    //     if (awayRank[i] < 0) {
-    //       doShift = true;
-    //     }
-    //     if (doShift) {
-    //       awayRank[i] = awayRank[i + 1];
-    //     }
-    //   }
-    // }
-    // awayRank.length = awayRank.length - 2;
-
     // print('awayRank: $awayRank');
     for (int i = 0; i < Player.db.length; i++) {
       int index = awayRank.indexOf(i + 1);
@@ -470,13 +503,14 @@ class Player {
     }
 
     List<int> movementDueToScore = List.filled(Player.db.length, 0);
+    List<int> placeOnCourt = List.filled(Player.db.length, 0);
+    List<int> origPlaceOnCourt = List.filled(Player.db.length, 0);
     List<int> winnerRanks = List.empty(growable: true);
     List<int> loserRanks = List.empty(growable: true);
 
     //figure out the movement within each court
     for (int court = 1; court < 9; court++) {
       List<int> rank = List.empty(growable: true);
-      List<int> assignedCourt = List.empty(growable: true);
       List<int> totalScores = List.empty(growable: true);
       List<int> finishOrder = List.empty(growable: true);
       int index = 0;
@@ -484,7 +518,6 @@ class Player {
         int thisCourt = pl.assignedCourt;
 
         if (thisCourt == court) {
-          assignedCourt.add(thisCourt);
           int thisRank = pl.currentRank;
           rank.add(thisRank);
 
@@ -507,14 +540,20 @@ class Player {
       }
       if (totalScores.isEmpty) break;
 
+
       for (var i = 0; i < finishOrder.length; i++) {
         int newPos = finishOrder[i];
         movementDueToScore[rank[finishOrder[i]] - 1] = rank[newPos] - rank[i];
+        placeOnCourt[rank[finishOrder[i]] - 1] = i + 1;
+        origPlaceOnCourt[rank[i]-1] = i+1;
+        // print('finish: $i, ${finishOrder[i]} ${rank[finishOrder[i]]}');
       }
+      // print('finishOrder: $court $finishOrder $rank $origPlaceOnCourt');
       winnerRanks.add(rank[finishOrder[0]]);
       loserRanks.add(rank[finishOrder.last]);
 
       // print('$court: $movementDueToScore');
+      // print('$court: finishOrder $finishOrder');
     }
 
     List<int> newRankAfter2 = List.filled(Player.db.length, 0);
@@ -524,8 +563,7 @@ class Player {
       orderAfter2[i - movementDueToScore[i]] = i + 1;
     }
     // print('MovementDueToScore: $movementDueToScore');
-    // print('newRankAfter2: $newRankAfter2');
-    // print('orderAfter2: $orderAfter2');
+    // print('placeOnCourt: $placeOnCourt');
 
     List<int> correctedMovementDueToAway = List.filled(Player.db.length, 0);
     for (var i = 0; i < Player.db.length; i++) {
@@ -554,6 +592,8 @@ class Player {
     for (Player pl in Player.db) {
       int rank = pl.currentRank;
       pl.movementDueToScore = movementDueToScore[rank - 1];
+      pl.placeOnCourt = placeOnCourt[rank - 1];
+      pl.origPlaceOnCourt = origPlaceOnCourt[rank - 1];
       pl.correctedMovementDueToAway = correctedMovementDueToAway[rank - 1];
       pl.movementDueToWinnerJumping = movementDueToWinnerJumping[rank - 1];
       pl.newRank = rank -
@@ -562,6 +602,7 @@ class Player {
           pl.movementDueToWinnerJumping;
     }
     onUpdate.add(true);
+    return true;
   }
 
   static bool loggedInUserIsAdmin1() {
@@ -595,12 +636,12 @@ class Player {
         .update({
       'FreezeCheckIns': value,
     });
-    if (!value) {
-      if (kDebugMode) {
-        print('updateFreezeCheckIns');
-      }
-      // clearAllScores(clearPresentAsWell: false);
-    }
+    // if (!value) {
+    //   if (kDebugMode) {
+    //     print('updateFreezeCheckIns');
+    //   }
+    //   // clearAllScores(clearPresentAsWell: false);
+    // }
   }
 
   void updatePresent(bool value) {
@@ -618,64 +659,65 @@ class Player {
   String getLastMovement() {
     final movement = lastMovement.split(':');
     String result;
-    if (movement.length < 5){
+    if (movement.length < 5) {
       if (kDebugMode) {
         print('LastMovement is not filled in! Can not display');
       }
       return '';
     }
     result = 'Moved From Rank: ${movement[0]} To: ${movement[1]}\n';
+    result += 'You moved from place ${movement[11]} to ${movement[10]}\n';
     if (movement[2][0] == '-') {
       result += 'Moved down due to score: ${movement[2].substring(1)}\n';
     } else if (movement[2][0] != '0') {
       result += 'Moved UP due to score: ${movement[2]}\n';
     }
     if (movement[3][0] == '-') {
-      result +=
-          'Moved down due to being away: ${movement[3].substring(1)}\n';
+      result += 'Moved down due to being away: ${movement[3].substring(1)}\n';
     } else if (movement[3][0] != '0') {
       result += 'Moved UP due to others being away: ${movement[3]}\n';
     }
     if (movement[4][0] == '-') {
-      result += 'Moved down due to finishing last: ${movement[4].substring(1)}\n';
+      result +=
+          'Moved down due to finishing last: ${movement[4].substring(1)}\n';
     } else if (movement[4][0] != '0') {
       result += 'Moved UP due to finishing first: ${movement[4]}\n';
     }
 
-    if (movement.length < 10){
+    if (movement.length < 10) {
       if (kDebugMode) {
         print('LastMovement does not have scores. Probably ok');
       }
       return result;
     }
-    result+='Game Scores:';
-    if (movement[5][0]!='-'){
-      result+=movement[5].toString();
+    result += 'Game Scores:';
+    if (movement[5][0] != '-') {
+      result += movement[5].toString();
     } else {
-      result+='0';
+      result += '0';
     }
-    if (movement[6][0]!='-'){
-      result+=',${movement[6]}';
+    if (movement[6][0] != '-') {
+      result += ',${movement[6]}';
     } else {
-      result+=',0';
+      result += ',0';
     }
-    if (movement[7][0]!='-'){
-      result+=',${movement[7]}';
+    if (movement[7][0] != '-') {
+      result += ',${movement[7]}';
     } else {
-      result+=',0';
+      result += ',0';
     }
-    if ((movement[8][0]=='-')&&(movement[9][0]=='-')) {
+    if ((movement[8][0] == '-') && (movement[9][0] == '-')) {
       return result; // don't display trailing zeros
     }
-    if (movement[8][0]!='-'){
-      result+=',${movement[8]}';
+    if (movement[8][0] != '-') {
+      result += ',${movement[8]}';
     } else {
-      result+=',0';
+      result += ',0';
     }
-    if (movement[9][0]!='-'){
-      result+=',${movement[9]}';
+    if (movement[9][0] != '-') {
+      result += ',${movement[9]}';
     } else {
-      result+=',0';
+      result += ',0';
     }
     return result;
   }
@@ -711,7 +753,7 @@ class Player {
     return retValue;
   }
 
-  static void updateConfirmScore(List<int> playersOnCourt){
+  static void updateConfirmScore(List<int> playersOnCourt) {
     // print('Entering updateConfirmScore');
     if (!freezeCheckins) {
       if (kDebugMode) {
@@ -725,27 +767,29 @@ class Player {
       signedInUserName = signedInUser.playerName;
     }
     WriteBatch scoreUpdate = FirebaseFirestore.instance.batch();
-    for (int pl=0;pl<playersOnCourt.length;pl++){
+    for (int pl = 0; pl < playersOnCourt.length; pl++) {
       // print('playersOnCourt $pl ${playersOnCourt[pl]}');
-      if (playersOnCourt[pl] >=0) {
+      if (playersOnCourt[pl] >= 0) {
         var doc = FirebaseFirestore.instance
             .collection(fireStoreCollectionName)
             .doc(Player.db[playersOnCourt[pl]].playerName);
         Player.db[playersOnCourt[pl]].scoreLastUpdatedBy +=
-        '$signedInUserName!!';
+            '$signedInUserName!!';
         // print('updateConfirmScore ${Player.db[playersOnCourt[pl]]
         //     .scoreLastUpdatedBy}  ${Player.db[playersOnCourt[pl]]
         //     .playerName} $signedInUserName');
         var details = {
           'ScoreLastUpdatedBy':
-          Player.db[playersOnCourt[pl]].scoreLastUpdatedBy,
+              Player.db[playersOnCourt[pl]].scoreLastUpdatedBy,
         };
         scoreUpdate.update(doc, details);
       }
     }
     scoreUpdate.commit();
     // print('Finished updateConfirmScore');
+    weJustConfirmed = true;
   }
+
   static void updateScore(List<int> playersOnCourt, List<int> newScore) {
     if (!freezeCheckins) {
       if (kDebugMode) {
@@ -848,7 +892,12 @@ class Player {
     }
     if (clearPresentAsWell) {
       //print('adding 1 to shift5Player=$shift5Player');
-      Player.shift5Player += 1;
+      int oddEven = (Player.shift5Player % 2) + 1;
+      if (oddEven > 1) {
+        oddEven = 0;
+      }
+      Player.shift5Player = random.nextInt(500) * 2 + oddEven;
+      ;
       scoreUpdate.update(
           FirebaseFirestore.instance
               .collection(fireStoreCollectionName)
@@ -1133,7 +1182,7 @@ class Player {
     });
   }
 
-  static Future<bool> setEmail (String playerName, String newEmail) async {
+  static Future<bool> setEmail(String playerName, String newEmail) async {
     if (kDebugMode) {
       print('Setting email for $playerName to $newEmail');
     }
@@ -1145,7 +1194,7 @@ class Player {
         'Email': newEmail,
       });
       return true;
-    } catch(e) {
+    } catch (e) {
       return false;
     }
   }
@@ -1174,7 +1223,8 @@ class Player {
     });
     // print('original history file length ${sourceFile!.length}');
 
-    String filename = '$fireStoreCollectionName/history/${fireStoreCollectionName}_${DateTime.now()}.csv';
+    String filename =
+        '$fireStoreCollectionName/history/${fireStoreCollectionName}_${DateTime.now()}.csv';
     setWeeksPlayed(Player.weeksPlayed + 1);
     String outputBuf = '';
     String header =
@@ -1214,7 +1264,8 @@ class Player {
       }
     }
     try {
-      filename = '$fireStoreCollectionName/history/${fireStoreCollectionName}_complete_${DateTime.now()}.csv';
+      filename =
+          '$fireStoreCollectionName/history/${fireStoreCollectionName}_complete_${DateTime.now()}.csv';
       if (kDebugMode) {
         print(
             'in uploadScore: starting with file $latestCompleteHistoryFile writing to file $filename');
@@ -1251,7 +1302,8 @@ class Player {
       scoreUpdate.update(doc, {
         'Rank': db[index].newRank,
         'WeeksAway': db[index].weeksAway,
-        'LastMovement': '${db[index].currentRank}:${db[index].newRank}:${db[index].movementDueToScore}:${db[index].correctedMovementDueToAway}:${db[index].movementDueToWinnerJumping}:${db[index].score1}:${db[index].score2}:${db[index].score3}:${db[index].score4}:${db[index].score5}',
+        'LastMovement':
+            '${db[index].currentRank}:${db[index].newRank}:${db[index].movementDueToScore}:${db[index].correctedMovementDueToAway}:${db[index].movementDueToWinnerJumping}:${db[index].score1}:${db[index].score2}:${db[index].score3}:${db[index].score4}:${db[index].score5}:${db[index].placeOnCourt}:${db[index].origPlaceOnCourt}',
       });
     }
     doc = FirebaseFirestore.instance

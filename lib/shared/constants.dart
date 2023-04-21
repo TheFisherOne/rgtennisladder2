@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-const int softwareVersion=4;
+const int softwareVersion=8;
 
 const textInputDecoration = InputDecoration(
     fillColor: Colors.white,
@@ -60,6 +60,6 @@ var ladderList = [
   'rg_monday_745',
   'rg_wednesday_100',
   'rg_thursday_600',
-  'testing',
+  'rg_friday_730',
   'rgtennisladdermonday600'
 ];

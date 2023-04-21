@@ -1,4 +1,3 @@
-import 'package:rgtennisladder/models/appuser.dart';
 import 'package:rgtennisladder/screens/authenticate/sign_in.dart';
 import 'package:rgtennisladder/services/player_db.dart';
 import 'package:rgtennisladder/shared/constants.dart';
@@ -8,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'home.dart';
+
+int overrideCourt4to5=-1;
 
 class Administration extends StatefulWidget {
   const Administration({Key? key}) : super(key: key);
@@ -19,17 +20,17 @@ class Administration extends StatefulWidget {
 class AdministrationState extends State<Administration> {
   String _enteredName = '';
   String _selectedPlayer = Player.db.first.playerName;
+  int _selectedPlayerIndex = 0;
   int _newRank = 0;
   int _newAdminLevel = 0;
   final TextEditingController _createUserController = TextEditingController();
-  String _newEmail='';
-  String _newPassword='';
-  String _newUserErrorMessage='';
+  String _newEmail = '';
+  String _newPassword = '';
+  String _newUserErrorMessage = '';
 
   void createUser() async {
     try {
-      await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _newEmail,
         password: _newPassword,
       );
@@ -38,24 +39,24 @@ class AdministrationState extends State<Administration> {
         if (kDebugMode) {
           print('The password provided is too weak.');
         }
-        _newUserErrorMessage='The password provided is too weak.';
+        _newUserErrorMessage = 'The password provided is too weak.';
       } else if (e.code == 'email-already-in-use') {
         if (kDebugMode) {
           print('The account already exists for that email.');
         }
-        _newUserErrorMessage='The account already exists for that email.';
+        _newUserErrorMessage = 'The account already exists for that email.';
       }
       return;
     } catch (e) {
       if (kDebugMode) {
         print(e);
       }
-      _newUserErrorMessage=e.toString();
+      _newUserErrorMessage = e.toString();
       return;
     }
-    _newEmail='';
-    _newPassword='';
-    _newUserErrorMessage='';
+    _newEmail = '';
+    _newPassword = '';
+    _newUserErrorMessage = '';
   }
 
   @override
@@ -98,13 +99,10 @@ class AdministrationState extends State<Administration> {
           child: Text(buttonText));
     }
 
-
-
     return StreamBuilder<bool>(
         stream: Player.onUpdate.stream,
         //note the snapshot is not used, this stream is used to detect updates to the Player.db
         builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
-
           var listOfPlayers = Player.db.map((Player pl) {
             return DropdownMenuItem<String>(
                 value: pl.playerName,
@@ -128,17 +126,7 @@ class AdministrationState extends State<Administration> {
                 //   },
                 //   child: const Text('Open PDF of rules'),
                 // ),
-                const SizedBox(height:10),
-                makeDoubleConfirmationButton(
-                    buttonText: 'Send Reset Password Email',
-                    dialogTitle: 'The reset expires in 1 hour',
-                    dialogQuestion: 'Are you sure you want to reset your password?',
-                    disabled: false,
-                    onOk: () {
-                      //print('PASSWORD RESET REQUESTED $signedInEmail');
-                      FirebaseAuth.instance.sendPasswordResetEmail(email: signedInEmail);
-                    }),
-
+                const SizedBox(height: 10),
                 CheckboxListTile(
                     title: const Text('Administrator 1 Mode'),
                     value: Player.admin1Enabled,
@@ -174,6 +162,7 @@ class AdministrationState extends State<Administration> {
                             if (homeStateInstance != null) {
                               setState(() {
                                 Player.updateFreezeCheckIns(value!);
+                                overrideCourt4to5=-1;
                               });
                             }
                           }),
@@ -354,9 +343,9 @@ class AdministrationState extends State<Administration> {
                         disabled:
                             (!Player.admin2Enabled | _enteredName.isEmpty),
                         onOk: () {
-                          String val=_enteredName.trim();
-                          val=val.replaceAll('  ', ' ');
-                          if (playerValidator(val)==null) {
+                          String val = _enteredName.trim();
+                          val = val.replaceAll('  ', ' ');
+                          if (playerValidator(val) == null) {
                             Player.createUser(_enteredName);
                             setState(() {
                               _enteredName = '';
@@ -364,7 +353,8 @@ class AdministrationState extends State<Administration> {
                             });
                           } else {
                             if (kDebugMode) {
-                              print('ERROR invalid name entered for new player');
+                              print(
+                                  'ERROR invalid name entered for new player');
                             }
                           }
                         }),
@@ -376,7 +366,7 @@ class AdministrationState extends State<Administration> {
                           textAlign: TextAlign.start,
                           inputFormatters: [
                             FilteringTextInputFormatter.singleLineFormatter,
-                            LengthLimitingTextInputFormatter(20)
+                            LengthLimitingTextInputFormatter(40)
                           ],
                           onChanged: !Player.admin2Enabled
                               ? null
@@ -395,6 +385,10 @@ class AdministrationState extends State<Administration> {
                       onChanged: (widSelected) {
                         setState(() {
                           _selectedPlayer = widSelected.toString();
+                          _selectedPlayerIndex =
+                              Player.findPlayerByName(_selectedPlayer)!
+                                      .currentRank -
+                                  1;
                         });
                       },
                       value: _selectedPlayer,
@@ -409,9 +403,9 @@ class AdministrationState extends State<Administration> {
                       onOk: () {
                         Player.deleteUser(_selectedPlayer);
                         setState(() {
-                          if (_selectedPlayer==Player.db.first.playerName){
-                            _selectedPlayer= Player.db[1].playerName;
-                          }else {
+                          if (_selectedPlayer == Player.db.first.playerName) {
+                            _selectedPlayer = Player.db[1].playerName;
+                          } else {
                             _selectedPlayer = Player.db.first.playerName;
                           }
                         });
@@ -495,31 +489,41 @@ class AdministrationState extends State<Administration> {
                               }),
                   ),
                 ]),
-                (fireStoreCollectionName.substring(0,9)=='rg_monday')?
+                (fireStoreCollectionName.substring(0, 9) == 'rg_monday')
+                    ? makeDoubleConfirmationButton(
+                        buttonText: 'Move to other Ladder',
+                        dialogTitle: 'Move to other Ladder',
+                        dialogQuestion:
+                            'Are you sure you want to move $_selectedPlayer? to the other ladder',
+                        disabled: (!Player.admin2Enabled),
+                        onOk: () {
+                          Player.moveToOtherLadder(_selectedPlayer);
+                          setState(() {
+                            if (_selectedPlayer == Player.db.first.playerName) {
+                              _selectedPlayer = Player.db[1].playerName;
+                            } else {
+                              _selectedPlayer = Player.db.first.playerName;
+                            }
+                          });
+                        })
+                    : const Text(''),
+                const SizedBox(height: 10.0),
                 makeDoubleConfirmationButton(
-                    buttonText: 'Move to other Ladder',
-                    dialogTitle: 'Move to other Ladder',
+                    buttonText: 'Allow Player in Late',
+                    dialogTitle: 'Allowing 1 late player in ?',
                     dialogQuestion:
-                    'Are you sure you want to move $_selectedPlayer? to the other ladder',
-                    disabled: (!Player.admin2Enabled),
+                        'Are you sure you want to let $_selectedPlayer in to play late\non court ${absentOnCourt[_selectedPlayerIndex]}?',
+                    disabled: (!Player.admin1Enabled ||
+                        (absentOnCourt[_selectedPlayerIndex] == 0) || (overrideCourt4to5>=0) || !Player.freezeCheckins),
                     onOk: () {
-                      Player.moveToOtherLadder(_selectedPlayer);
-                      setState(() {
-
-
-                      if (_selectedPlayer==Player.db.first.playerName){
-                        _selectedPlayer= Player.db[1].playerName;
-                      }else {
-                        _selectedPlayer = Player.db.first.playerName;
-                      }
-                      });
-                    }):const Text(''),
+                      overrideCourt4to5=absentOnCourt[_selectedPlayerIndex];
+                      Player.db[_selectedPlayerIndex].updatePresent(true);
+                    }),
                 const SizedBox(height: 10.0),
                 TextFormField(
                   enabled: (Player.admin2Enabled),
                   decoration: textInputDecoration.copyWith(
-                      hintText: 'Email',
-                      suffixIcon: const Icon(Icons.email)),
+                      hintText: 'Email', suffixIcon: const Icon(Icons.email)),
                   obscureText: false,
                   autofillHints: const [AutofillHints.email],
                   onChanged: (val) {
@@ -542,17 +546,17 @@ class AdministrationState extends State<Administration> {
                   },
                 ),
                 const SizedBox(height: 10.0),
-                ((_newEmail.length>=6)&&(_newPassword.length>=6))?
-                makeDoubleConfirmationButton(
-                    buttonText: 'create new Login',
-                    dialogTitle: 'Create a new login for $_newEmail ?',
-                    dialogQuestion:
-                    'Are you sure you want to create a new login for $_newEmail?\n NOTE: YOU WILL BE LOGGED IN AS THEM\nYou will need to logout!',
-                    disabled: (!Player.admin2Enabled),
-                    onOk: () {
-                      createUser(); // this is async
-
-                    }):const Text(''),
+                ((_newEmail.length >= 6) && (_newPassword.length >= 6))
+                    ? makeDoubleConfirmationButton(
+                        buttonText: 'create new Login',
+                        dialogTitle: 'Create a new login for $_newEmail ?',
+                        dialogQuestion:
+                            'Are you sure you want to create a new login for $_newEmail?\n NOTE: YOU WILL BE LOGGED IN AS THEM\nYou will need to logout!',
+                        disabled: (!Player.admin2Enabled),
+                        onOk: () {
+                          createUser(); // this is async
+                        })
+                    : const Text(''),
                 Text(_newUserErrorMessage),
                 const SizedBox(height: 10.0),
                 makeDoubleConfirmationButton(

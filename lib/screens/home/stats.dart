@@ -18,7 +18,7 @@ import 'package:rgtennisladder/screens/home/history.dart';
 int statsPlayerNumber = -1;
 Future<void> uploadPicture(XFile file) async {
   String filename =
-      '$fireStoreCollectionName/player_pictures/${loggedInPlayerName!}';
+      'PlayerPictures/${loggedInPlayerName!}';
   Uint8List fileData;
   img.Image? image;
   try {
@@ -114,6 +114,7 @@ class StatsState extends State<Stats> {
     if (statsPlayerNumber >= 0) {
       selectedName = Player.db[statsPlayerNumber].playerName;
       selectedEmail=Player.db[statsPlayerNumber].email;
+      // print ('found player number: $statsPlayerNumber $selectedName $selectedEmail');
     }
 
     // print('stats build names: $selectedName, $loggedInPlayerName ');
@@ -127,7 +128,7 @@ class StatsState extends State<Stats> {
         }
       }
     }
-
+    // print('send reset: $selectedEmail ${Player.admin2Enabled} $loggedInPlayerName $selectedName');
     return WillPopScope(
       onWillPop: () async {
         //check if the score changed
@@ -160,10 +161,19 @@ class StatsState extends State<Stats> {
                     foregroundColor: Colors.black, backgroundColor: Colors.blue),
                 onPressed: () async {
                   await launchUrl(Uri(path: 'assets/assets/DoublesLadderRules.pdf'));
-                  // Navigator.push(context, MaterialPageRoute(builder:(context)=>const ShowRules()));
                 },
                 child: const Text('Open PDF of rules'),
               ),
+              const SizedBox(height: 10,),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black, backgroundColor: Colors.blue),
+                onPressed: () async {
+                  await launchUrl(Uri(path: 'assets/assets/AppInstructions.pdf'));
+                },
+                child: const Text('Open PDF of App Instructions'),
+              ),
+              const SizedBox(height: 10,),
               loggedInPlayerName != selectedName
                   ? (selectedName == ''
                       ? const Text('Please wait for picture to be processed')
@@ -219,7 +229,8 @@ class StatsState extends State<Stats> {
                   style: nameStyle,
                   textAlign: TextAlign.end,
                 ),
-                ((selectedEmail!=null)&&((Player.admin2Enabled )|| (loggedInPlayerName == selectedName)))?OutlinedButton(
+                ((selectedEmail!=null)&&((Player.admin1Enabled )|| (loggedInPlayerName == selectedName)))?
+                OutlinedButton(
                     style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.black,
                         backgroundColor: Colors.blue),
@@ -231,6 +242,9 @@ class StatsState extends State<Stats> {
                     },
                     child: const Text('Send Password Reset Email'))
                 :const Text('Please log out and log in again\nWe have not recorded your email address yet'),
+                (loggedInPlayerName != selectedName)?const SizedBox(height: 0)
+                    :const Text('Are you going to miss Ladder?',
+                    style: TextStyle(fontSize:20, color:Colors.red)),
                 Row(children: [
                   const Expanded(
                       child: Text(
@@ -281,6 +295,9 @@ class StatsState extends State<Stats> {
                                       .toString(),
                                   style: nameStyle)))
                 ]),
+                (loggedInPlayerName != selectedName)?const SizedBox(height: 0)
+                    :const Text('Enter the number of weeks you will be away!',
+                    style: TextStyle(fontSize:20, color:Colors.red)),
                 Text(
                   Player.db[statsPlayerNumber].getLastMovement(),
                   style: nameStyle,
@@ -301,6 +318,8 @@ class StatsState extends State<Stats> {
                     ])
                   : const Text(''),
               const SizedBox(height: 20),
+              Text('Entered by: ${Player.db[statsPlayerNumber].scoreLastUpdatedBy}',
+                  style: const TextStyle(fontSize:20)),
             ]),
       ),
     );
