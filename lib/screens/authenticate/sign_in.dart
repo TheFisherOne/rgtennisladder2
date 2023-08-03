@@ -1,5 +1,6 @@
 import 'dart:core';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rgtennisladder/main.dart';
 import 'package:rgtennisladder/models/appuser.dart';
@@ -258,7 +259,36 @@ class SignInState extends State<SignIn> {
                                 error,
                                 style: const TextStyle(
                                     color: Colors.red, fontSize: appFontSize),
-                              )
+                              ),
+                              const SizedBox(height: 12.0),
+                              (email.contains('@'))?
+                              OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.black,
+                                      backgroundColor: Colors.blue),
+                                  onPressed: () {
+                                    if (kDebugMode) {
+                                      print('password reset to $email');
+                                    }
+
+                                    FirebaseAuth.instance
+                                        .sendPasswordResetEmail(
+                                        email: email)
+                                    .then((value){
+                                      print('RESET Password for $email');
+                                    })
+                                    .catchError((e){
+                                      setState(() {
+                                        error = e.toString();
+                                      });
+
+                                      if (kDebugMode) {
+                                        print('got error on password reset for $email : $e.');
+                                      }
+                                    });
+                                  },
+
+                                  child: const Text('Send Password Reset Email')):const SizedBox(height: 12.0),
                             ]),
                           ),
                         ],

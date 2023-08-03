@@ -446,6 +446,9 @@ class EnterScores3State extends State<EnterScores3> {
                   }
                 }
                 bool scoresReadyToConfirm = true;
+                bool thisPlayerEnteredScoresLast = false;
+                bool allPlayersConfirmed = false;
+                bool thereAreBlanksToFillIn = false;
 
                 if (playerNamesOnCourt[4].isEmpty){
                   // court of 4
@@ -454,6 +457,7 @@ class EnterScores3State extends State<EnterScores3> {
                     for (int pl = 0; pl<4; pl++) {
                       if (origScores[pl * 5 + game] < 0) {
                         scoresReadyToConfirm = false;
+                        thereAreBlanksToFillIn = true;
                         // print('court4 not ready $game, $pl');
                         break;
                       }
@@ -462,18 +466,22 @@ class EnterScores3State extends State<EnterScores3> {
                   }
 
                   int numConfirmed=0;
-                  bool thisPlayerEnteredScoresLast = false;
+
                   for (int pl = 0; pl<4; pl++) {
                     final splitStr = scoreLastUpdatedBy[pl].split('/');
                     String lastEntry='NOBODY ENTERED';
                     if (splitStr.length >=2 ){
                       lastEntry = splitStr[splitStr.length-2];
                     }
+                    // print('lastEntry: $lastEntry $loggedInPlayerName');
                     if (scoreLastUpdatedBy[pl].endsWith('!!')){
                       numConfirmed++;
                     } else if (lastEntry.contains(loggedInPlayerName!) ){
                       thisPlayerEnteredScoresLast = true; //this player can not confirm
                     }
+                  }
+                  if (numConfirmed == 4 ){
+                    allPlayersConfirmed = true;
                   }
                   if ((numConfirmed == 4 ) || thisPlayerEnteredScoresLast ){
                     // print('court4 numConfirmed: $numConfirmed');
@@ -490,10 +498,11 @@ class EnterScores3State extends State<EnterScores3> {
                     }
                     if (numBlank > 1){
                       scoresReadyToConfirm = false;
+                      thereAreBlanksToFillIn = true;
                     }
                   }
                   int numConfirmed=0;
-                  bool thisPlayerEnteredScoresLast = false;
+                  thisPlayerEnteredScoresLast = false;
                   for (int pl = 0; pl<5; pl++) {
                     final splitString = scoreLastUpdatedBy[pl].split('/');
                     String lastEntry='NOBODY ENTERED';
@@ -506,6 +515,9 @@ class EnterScores3State extends State<EnterScores3> {
                       thisPlayerEnteredScoresLast = true; //this player can not confirm
                     }
                   }
+                  if (numConfirmed == 5 ){
+                    allPlayersConfirmed = true;
+                  }
                   if ((numConfirmed == 5 ) || thisPlayerEnteredScoresLast ) {
                     scoresReadyToConfirm = false;
                   }
@@ -515,6 +527,8 @@ class EnterScores3State extends State<EnterScores3> {
                 _errorString1 = errorGameCount('');
 
                 _errorString1 = errorPairs(_errorString1);
+
+                print('This last: $thisPlayerEnteredScoresLast, allConfirmed: $allPlayersConfirmed ScoresReady: $scoresReadyToConfirm');
 
                 return SingleChildScrollView(
                   primary: true,
@@ -594,8 +608,14 @@ class EnterScores3State extends State<EnterScores3> {
                                 Navigator.pop(context);
                               }
                             : null,
-                        child: const Text(
-                            'Someone else confirms that scores are correct')),
+                        child: (allPlayersConfirmed?const Text('Scores are CONFIRMED'):(
+                        thereAreBlanksToFillIn? const Text('Need scores for all of the games before confirming'): (
+                                thisPlayerEnteredScoresLast? const Text('Someone else confirms that scores are correct'):
+                                                         const Text('Press to confirm scores are correct')
+
+                        )
+                        )),
+                    ),
                     const SizedBox(
                       height: 10,
                     ),

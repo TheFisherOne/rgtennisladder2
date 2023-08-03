@@ -100,6 +100,10 @@ class Player {
   static int numberOfAssignedCourts = 0;
   static String adLink = '';
   static bool weJustConfirmed=false;
+  static bool nonPlayingGuest = true;
+  static bool nonPlayingAdmin = false;
+
+  static int debugRotateAmount=0;
 
   String uid = '';
   String playerName = '';
@@ -132,6 +136,9 @@ class Player {
 
   static bool buildPlayerDB(AsyncSnapshot<QuerySnapshot> snapshot) {
     numPresent = 0;
+    Player.nonPlayingAdmin = false;
+    Player.nonPlayingGuest = true;
+
     db = List.empty(growable: true);
     for (var doc in snapshot.requireData.docs) {
       // print('buildPlayerDB ${doc.id}');
@@ -245,6 +252,11 @@ class Player {
 
           // insert into the db in rank order
           int insertRank = 0;
+          // print('CHECKING: ${doc.id}/$loggedInPlayerName');
+          if (doc.id == loggedInPlayerName){
+            Player.nonPlayingGuest = false;
+            // print('found logged in player ${doc.id}');
+          }
 
           for (Player pl in Player.db) {
             if (pl.currentRank > newPlayer.currentRank) {
@@ -260,6 +272,9 @@ class Player {
         } else {
           if (doc.id == loggedInPlayerName) {
             int adminLevel = doc.get('Admin');
+            if (adminLevel > 0)  {
+              Player.nonPlayingAdmin = true;
+            }
 
             if (adminLevel == 1) {
               Player.admin1Enabled = true;
@@ -273,7 +288,7 @@ class Player {
         }
       }
     }
-
+    // print('results: ${Player.nonPlayingGuest } ${Player.nonPlayingAdmin}');
     // done building the database, now use it
     // what are the assigned courts?
     var skipPlayer = List.filled(Player.db.length, false);
@@ -321,7 +336,7 @@ class Player {
     if ((Player.shift5Player % 2) == 0) {
       Player.topOn1 = false;
     }
-
+    // print("playersPerCourt1-1: $playersPerCourt1");
     // playersPerCourt1 is of length total number of courts needed
     // with the first n marked as 5 and the last ones marked as 4
     // keep the first choice as a court of 5
@@ -330,8 +345,8 @@ class Player {
       playersPerCourt1[2] = playersPerCourt1[1];
       playersPerCourt1[1] = tmp;
     } else if (playersPerCourt1.length == 4) {
-      int tmp = playersPerCourt1[3];
-      playersPerCourt1[3] = playersPerCourt1[1];
+      int tmp = playersPerCourt1[2];
+      playersPerCourt1[2] = playersPerCourt1[1];
       playersPerCourt1[1] = tmp;
     } else if (playersPerCourt1.length > 4) {
       int tmp = playersPerCourt1[4];
@@ -342,6 +357,8 @@ class Player {
       playersPerCourt1[1] = tmp;
     }
     List<int> prevPlayersPerCourt = Player.playersPerCourt;
+    debugRotateAmount = rotateAmt % playersPerCourt1.length;
+    // print("playersPerCourt1a: $playersPerCourt1 $rotateAmt ${playersPerCourt1.length} ${debugRotateAmount}");
 
     if (overrideCourt4to5 >= 0) {
       prevPlayersPerCourt[overrideCourt4to5 - 1] = 5;
@@ -352,6 +369,7 @@ class Player {
       }
     }
 
+    // print("playersPerCourt1b: $playersPerCourt");
     int court = 1;
     int numAssigned = 0;
     List<int> onACourtOf = List.filled(Player.db.length, 0);
@@ -666,7 +684,8 @@ class Player {
       return '';
     }
     result = 'Moved From Rank: ${movement[0]} To: ${movement[1]}\n';
-    result += 'You moved from place ${movement[11]} to ${movement[10]}\n';
+    result += 'You moved from place ${(movement.length>11)?movement[11]:'-'} to ${movement[10]}\n';
+
     if (movement[2][0] == '-') {
       result += 'Moved down due to score: ${movement[2].substring(1)}\n';
     } else if (movement[2][0] != '0') {
@@ -749,6 +768,8 @@ class Player {
     if (courtsOf0 > 0) {
       retValue += ', +$courtsOf0';
     }
+
+    retValue += ' >$debugRotateAmount';
     // print('Court Info $retValue');
     return retValue;
   }
@@ -1137,6 +1158,7 @@ class Player {
         .doc(newName)
         .update({
       'WeeksAway': newVal,
+      'Present': false,
     });
   }
 

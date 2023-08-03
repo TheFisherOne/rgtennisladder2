@@ -15,7 +15,6 @@ import 'administration.dart';
 // import 'enter_scores2.dart';
 import 'enter_scores3.dart';
 
-
 HomeState? homeStateInstance;
 
 enum Menu { itemOne, itemTwo, itemThree, itemFour }
@@ -105,39 +104,31 @@ class HomeState extends State<Home> {
           PopupMenuButton<int>(
               // Callback that sets the selected popup menu item.
               onSelected: (int item) {
-                setState(() {
-                  _selectedMenu = ladderList[item];
-                  setCollectionName(_selectedMenu);
-                  historyFileList = null;
-                  buildHistoryFileList();
-                });
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
-                    PopupMenuItem<int>(
-                      value: 0,
-                      child: Text(ladderList[0]),
-                    ),
-                    PopupMenuItem<int>(
-                      value: 1,
-                      child: Text(ladderList[1]),
-                    ),
-                    PopupMenuItem<int>(
-                      value: 2,
-                      child: Text(ladderList[2]),
-                    ),
-                    PopupMenuItem<int>(
-                      value: 3,
-                      child: Text(ladderList[3]),
-                    ),
-                    PopupMenuItem<int>(
-                      value: 4,
-                      child: Text(ladderList[4]),
-                    ),
-                    PopupMenuItem<int>(
-                      value: 5,
-                      child: Text(ladderList[5]),
-                    ),
-                  ]),
+            setState(() {
+              if ((item >= ladderList.length) ||
+                  ((!Player.admin2Enabled) &&
+                      (item == (ladderList.length - 1)))) {
+                item = 0;
+              }
+              _selectedMenu = ladderList[item];
+              setCollectionName(_selectedMenu);
+              historyFileList = null;
+              buildHistoryFileList();
+            });
+          }, itemBuilder: (BuildContext context) {
+            var list = <PopupMenuEntry<int>>[];
+            var numChoices = ladderList.length;
+            if (!Player.admin2Enabled) {
+              numChoices--;
+            }
+            for (int ladderNum = 0; ladderNum < numChoices; ladderNum++) {
+              list.add(PopupMenuItem<int>(
+                value: ladderNum,
+                child: Text(ladderList[ladderNum]),
+              ));
+            }
+            return list;
+          }),
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -160,7 +151,6 @@ class HomeState extends State<Home> {
               onOk: () async {
                 await AuthService().signOut();
               }),
-
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -174,8 +164,9 @@ class HomeState extends State<Home> {
             if (snapshot.data == null) return const LinearProgressIndicator();
 
             homeSnapshot = snapshot;
-            if (!Player.buildPlayerDB(snapshot)){
-              return const Text('You must force a reload to get a new software version');
+            if (!Player.buildPlayerDB(snapshot)) {
+              return const Text(
+                  'You must force a reload to get a new software version');
             }
             _freezeCheckIns = Player.freezeCheckins;
 
@@ -187,51 +178,56 @@ class HomeState extends State<Home> {
             // print('home StreamBuilder loggedInPlayerName $loggedInPlayerName');
             for (Player pl in pdb) {
               if (pl.playerName == loggedInPlayerName) {
-                  if (pl.uid == '') {
+                if (pl.uid == '') {
                   pl.setUID(loggedInUID);
-                } else if (pl.uid != loggedInUID) {
+                }
+                if (pl.uid != loggedInUID) {
                   loggedInPlayerName = 'NEW email? $loggedInPlayerName';
                 }
               }
 
-              if (pl.present && !pl.scoreLastUpdatedBy.endsWith('!!')){
+              if (pl.present && !pl.scoreLastUpdatedBy.endsWith('!!')) {
                 allScoresConfirmed = false;
               }
-
             }
             // print('allScoresConfirmed: $allScoresConfirmed');
-            if (allScoresConfirmed && Player.weJustConfirmed){
-                 Player.applyMovement();
+            if (allScoresConfirmed && Player.weJustConfirmed) {
+              Player.applyMovement();
             }
             Player.weJustConfirmed = false;
             var orderOfCourts =
                 orderOfCourtsFull.sublist(0, Player.numberOfAssignedCourts);
-            if ((Player.numberOfAssignedCourts >= 3) & (Player.topOn1) && (fireStoreCollectionName!='rg_thursday_600')) {
+            if ((Player.numberOfAssignedCourts >= 3) && (Player.topOn1) &&
+                ((fireStoreCollectionName != 'rg_thursday_600') &&
+                    (fireStoreCollectionName != 'rg_wednesday_100'))) {
               // move court 1 to the top and 8910 to the end
               orderOfCourts =
                   orderOfCourtsFull.sublist(3, Player.numberOfAssignedCourts);
               orderOfCourts.addAll(orderOfCourtsFull.sublist(0, 3));
             }
             // orderOfCourts is either 89T1x or 1x89T
-            if  (fireStoreCollectionName=='rg_thursday_600'){
-              int numCourtsOf5=0;
-              for (int court=0; court<orderOfCourts.length; court++){
-                if (Player.playersPerCourt[court]==5){
-                  numCourtsOf5+=1;
-                  if (numCourtsOf5==1){
-                    if (court>0){
-                      int tmp=orderOfCourts[court];
-                      orderOfCourts[court]=orderOfCourts[0];
-                      orderOfCourts[0]=tmp;
+            if ((fireStoreCollectionName == 'rg_thursday_600') ||
+                (fireStoreCollectionName == 'rg_wednesday_100')){
+              int numCourtsOf5 = 0;
+              for (int court = 0; court < orderOfCourts.length; court++) {
+                if (Player.playersPerCourt[court] == 5) {
+                  numCourtsOf5 += 1;
+                  if (numCourtsOf5 == 1) {
+                    if (court > 0) {
+                      int tmp = orderOfCourts[court];
+                      orderOfCourts[court] = orderOfCourts[0];
+                      orderOfCourts[0] = tmp;
                     }
-                  } else if ((numCourtsOf5==2) && (orderOfCourts.length>=3)){
-                    int tmp=orderOfCourts[court];
-                    orderOfCourts[court]=orderOfCourts[2];
-                    orderOfCourts[2]=tmp;
-                  }else if ((numCourtsOf5==3)&& (orderOfCourts.length>=4)){
-                    int tmp=orderOfCourts[court];
-                    orderOfCourts[court]=orderOfCourts[3];
-                    orderOfCourts[3]=tmp;
+                  } else if ((numCourtsOf5 == 2) &&
+                      (orderOfCourts.length >= 3)) {
+                    int tmp = orderOfCourts[court];
+                    orderOfCourts[court] = orderOfCourts[2];
+                    orderOfCourts[2] = tmp;
+                  } else if ((numCourtsOf5 == 3) &&
+                      (orderOfCourts.length >= 4)) {
+                    int tmp = orderOfCourts[court];
+                    orderOfCourts[court] = orderOfCourts[3];
+                    orderOfCourts[3] = tmp;
                   }
                 }
               }
@@ -240,14 +236,13 @@ class HomeState extends State<Home> {
             // if (kDebugMode) {
             //   print('picking from courts $orderOfCourts  ${Player.numberOfAssignedCourts}');
             // }
-            String adName='';
-            if (Player.adNumber>0) {
-              adName = 'assets/TennisAd${Player.adNumber.toString().padLeft(
-                  3, '0')}.jpg';
+            String adName = '';
+            if (Player.adNumber > 0) {
+              adName =
+                  'assets/TennisAd${Player.adNumber.toString().padLeft(3, '0')}.jpg';
             }
             return Column(
               children: [
-
                 Text(Player.courtInfoString,
                     style: const TextStyle(fontSize: 20)),
                 Expanded(
@@ -255,19 +250,24 @@ class HomeState extends State<Home> {
                       separatorBuilder: (context, index) =>
                           const Divider(color: Colors.black),
                       padding: const EdgeInsets.all(8),
-                      itemCount: numberOfPlayers+1,
+                      itemCount: numberOfPlayers + 1,
                       itemBuilder: (BuildContext context, int row) {
-                        int index=row-1;
-                        if (row==0) {
-                          if (adName!='') {
+                        int index = row - 1;
+                        if (row == 0) {
+                          if (Player.nonPlayingGuest) {
+                            return Text(
+                                'NOT Playing ${Player.nonPlayingAdmin ? ' Admin' : 'Guest'}:$loggedInPlayerName',
+                                style: nameStyle);
+                          }
+                          if (adName != '') {
                             if (Player.adLink.isNotEmpty) {
-                              return InkWell(child: StorageImage(fullPath: adName),
-                              onTap: () async {
-                                await launchUrl(Uri.parse(Player.adLink));
-
-                              }
-                              // onTap: () => launchUrl(Uri(path: Player.adLink)),
-                              );
+                              return InkWell(
+                                  child: StorageImage(fullPath: adName),
+                                  onTap: () async {
+                                    await launchUrl(Uri.parse(Player.adLink));
+                                  }
+                                  // onTap: () => launchUrl(Uri(path: Player.adLink)),
+                                  );
                             } else {
                               return StorageImage(fullPath: adName);
                             }
@@ -309,14 +309,13 @@ class HomeState extends State<Home> {
                                         if (plNum == 4) {
                                           playersOnCourt[plNum] = -1;
                                         }
-                                          EnterScores3.prepareForScoreEntry(
-                                              playersOnCourt,
-                                              playerToEnterScore);
-                                          Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      const EnterScores3()));
+                                        EnterScores3.prepareForScoreEntry(
+                                            playersOnCourt, playerToEnterScore);
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const EnterScores3()));
                                       }
                                     },
                                     child: (pdb[index].assignedCourt < 0
@@ -327,8 +326,8 @@ class HomeState extends State<Home> {
                                         : Text(
                                             '${plusMinus.format(pdb[index].movementDueToScore)}${plusMinus.format(pdb[index].correctedMovementDueToAway)}${plusMinus.format(pdb[index].movementDueToWinnerJumping)}=${pdb[index].newRank}  ',
                                             style: nameStyle)))
-                                : (pdb[index].weeksAway == 0)?
-                                    Checkbox(
+                                : (pdb[index].weeksAway == 0)
+                                    ? Checkbox(
                                         activeColor: pdb[index].admin > 0
                                             ? Colors.green
                                             : Colors.blue,
@@ -358,12 +357,34 @@ class HomeState extends State<Home> {
                                                       Player.rgHowClose) &
                                                   (rgLongDiff <
                                                       Player.rgHowClose);
-
+                                              // print('checking location $value');
                                               if ((locationOK | !value!) &
                                                   (loggedInUID ==
                                                       pdb[index].uid)) {
-                                                //toggle the present flag
-                                                pdb[index].updatePresent(value);
+                                                if (((DateTime.now().weekday !=
+                                                            Player
+                                                                .playOnWeekday) |
+                                                        (DateTime.now().hour <
+                                                            8) |
+                                                        (DateTime.now().hour >=
+                                                            22)) &&
+                                                    value) {
+                                                  // print('wrong day');
+                                                  showDialog(
+                                                      context: context,
+                                                      builder: (context) {
+                                                        return const AlertDialog(
+                                                            title: Text(
+                                                                'What day is it?'),
+                                                            content: Text(
+                                                                'You can only check present on the day of the ladder!'));
+                                                      });
+                                                } else {
+                                                  print('toggle present');
+                                                  //toggle the present flag
+                                                  pdb[index]
+                                                      .updatePresent(value);
+                                                }
                                               } else {
                                                 if (loggedInUID !=
                                                     pdb[index].uid) {
@@ -426,7 +447,7 @@ class HomeState extends State<Home> {
                             )),
                             _freezeCheckIns & pdb[index].present
                                 ? (Text(
-                                    '${(pdb[index].assignedCourt > 0) ? orderOfCourts[pdb[index].assignedCourt - 1].toString() : ''}${pdb[index].scoreLastUpdatedBy.endsWith('!!')?'!':':'}${pdb[index].totalScore}',
+                                    '${(pdb[index].assignedCourt > 0) ? orderOfCourts[pdb[index].assignedCourt - 1].toString() : ''}${pdb[index].scoreLastUpdatedBy.endsWith('!!') ? '!' : ':'}${pdb[index].totalScore}',
                                     style: nameStyle,
                                   ))
                                 : Text(
