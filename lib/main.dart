@@ -1,4 +1,4 @@
-// import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'package:rgtennisladder/models/appuser.dart';
 import 'package:rgtennisladder/screens/wrapper.dart';
 import 'package:rgtennisladder/services/auth.dart';
@@ -43,11 +43,13 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     // print('in main build');
-    fireStoreCollectionName = context.read<SharedPreferences>().getString('ladderName')??'';
+
+    String newLadder = context.read<SharedPreferences>().getString('ladderName')??'';
+    setCollectionName(newLadder);
 
     loggedInPlayerName = context.read<SharedPreferences>().getString('playerName')??'';
     if (kDebugMode) {
-      print('On startup read from device local Ladder: $fireStoreCollectionName Name: $loggedInPlayerName');
+      print('On startup read from SharedPreferences local Ladder: $fireStoreCollectionName Name: $loggedInPlayerName');
     }
     return FutureBuilder(
       future: kIsWeb ? Firebase.initializeApp(options:firebaseConfig):Firebase.initializeApp(),
@@ -58,6 +60,7 @@ class _MyAppState extends State<MyApp> {
           return Text('ERROR!${snapshot.error.toString()}',textDirection: TextDirection.ltr);
         }
         if (snapshot.connectionState == ConnectionState.done){
+          // print('main.dart ${FirebaseAuth.instance.currentUser?.email}');
           return StreamProvider<Appuser?>.value(
               value: AuthService().user,
               initialData: null,

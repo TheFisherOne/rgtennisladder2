@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:core';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+// import 'package:flutter/foundation.dart';
 import 'package:rgtennisladder/main.dart';
 import 'package:rgtennisladder/services/player_db.dart';
 import 'package:rgtennisladder/shared/constants.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+// import 'package:flutter/services.dart';
 
 List<int> playersOnCourt = List.filled(5, 0);
 int playerToEnterScore = 0;
@@ -26,7 +28,6 @@ class EnterScores3 extends StatefulWidget {
   EnterScores3State createState() => EnterScores3State();
 
   static void prepareForScoreEntry(newPlayersOnCourt, newPlayerToEnterScore) {
-    // print('PrepageForScoreEntry: $newPlayersOnCourt, $newPlayerToEnterScore');
     _enableScoreEntry = false;
     newScores.fillRange(0, newScores.length, -9);
     edited.fillRange(0, edited.length, false);
@@ -62,6 +63,8 @@ class EnterScores3State extends State<EnterScores3> {
   String _errorString1 = '';
   List<String> scoreLastUpdatedBy = List.filled(5, '');
   bool _plusMinus = true;
+  String _confirmedBy = '';
+  String _lastScoreEntryBy = '';
 
   void startTimer() {
     _exitCountdown = scoreEntryTimeout;
@@ -93,6 +96,144 @@ class EnterScores3State extends State<EnterScores3> {
   }
 
   final List<bool> _problemInSet = List.filled(5, false);
+
+  Widget autoButton(int index) {
+    bool courtOf5 = playerNamesOnCourt[4].isNotEmpty;
+    // print("$index Court of 5? $courtOf5");
+
+    // print('$index   &&& $newScores   ^^^  $origScores');
+    List<int> scores = [
+      newScores[0 * 5 + index],
+      newScores[1 * 5 + index],
+      newScores[2 * 5 + index],
+      newScores[3 * 5 + index],
+      newScores[4 * 5 + index]
+    ];
+
+    int matchingEntered = -1;
+    int firstEntered = -1;
+
+      for (int i = 0; i < 5; i++) {
+        if (courtOf5) {
+          if ((scores[i] < 0) && (i != (4 - index))&&(scores[i]!=(courtOf5?9:11))) {
+            scores[i] = origScores[i * 5 + index];
+          }
+        } else if (scores[i] < 0) {
+          scores[i] = origScores[i * 5 + index];
+        }
+      }
+
+      for (int i = 0; i < 5; i++) {
+        if (courtOf5) {
+          if ((scores[i] >= 0) && (i != (4 - index))&&(scores[i]!=(courtOf5?9:11))) {
+            firstEntered = i;
+            break;
+          }
+        } else if (scores[i] >= 0) {
+          firstEntered = i;
+          break;
+        }
+      }
+      // print('firstEntered $firstEntered $scores');
+      if (firstEntered < 0) {
+        // disable autoButton, no scores entered
+        return const Text(' ');
+      }
+
+      for (int i = firstEntered + 1; i < 5; i++) {
+        if (courtOf5) {
+          if ((scores[i] == scores[firstEntered]) && (i != (4 - index))) {
+            matchingEntered = i;
+            break;
+          }
+        } else if (scores[i] == scores[firstEntered]) {
+          matchingEntered = i;
+          break;
+        }
+      }
+
+    // print('matchingEntered $matchingEntered');
+    if (matchingEntered < 0) {
+      // disable autoButton no score matching first score
+      return const Text(' ');
+    }
+
+    int unused1;
+    for (unused1 = 0; unused1 < 5; unused1++) {
+      if (courtOf5) {
+        if ((unused1 != firstEntered) &&
+            (unused1 != matchingEntered) &&
+            (unused1 != (4 - index))) {
+          break;
+        }
+      } else if ((unused1 != firstEntered) && (unused1 != matchingEntered)) {
+        break;
+      }
+    }
+    int unused2;
+    for (unused2 = unused1 + 1; unused2 < 5; unused2++) {
+      if (courtOf5) {
+        if ((unused2 != firstEntered) &&
+            (unused2 != matchingEntered) &&
+            (unused2 != (4 - index))) {
+          break;
+        }
+      } else if ((unused2 != firstEntered) && (unused2 != matchingEntered)) {
+        break;
+      }
+    }
+    // print('$firstEntered, $matchingEntered, $unused1, $unused2');
+    int scoreSum = scores[firstEntered] + scores[matchingEntered] + scores[unused1] + scores[unused2];
+    if (fireStoreCollectionName.substring(3,5)=='PB'){
+      //pickleball
+      if ((scores[unused1] == (courtOf5?9:11)) && (scores[unused1] == (courtOf5?9:11))) {
+        // hide the button if all of the scores are entered
+        return const Text(' ');
+      }
+    } else {
+      //tennis
+      if (scoreSum == (courtOf5?6:8)*2){
+        // hide the score if its all entered
+        return const Text(' ');
+      }
+    }
+    return Container(
+      margin: const EdgeInsets.all(5),
+      child: ElevatedButton(
+        onPressed: _enableScoreEntry
+            ? () {
+                // print('Auto pressed $index');
+                // print('UPDATE SCORE: $unused1, $unused2 ${courtOf5?6:8} ${scores[firstEntered]}');
+                setState(() {
+                  if (fireStoreCollectionName.substring(3,5)=='PB'){
+                    newScores[unused1 * 5 + index] = courtOf5?9:11;
+                    newScores[unused2 * 5 + index] = courtOf5?9:11;
+                  } else {
+                    newScores[unused1 * 5 + index] =
+                        (courtOf5 ? 6 : 8) - scores[firstEntered];
+                    newScores[unused2 * 5 + index] =
+                        (courtOf5 ? 6 : 8) - scores[firstEntered];
+                  }
+                  edited[unused1 * 5 + index] = true;
+                  edited[unused2 * 5 + index] = true;
+                });
+                entryTimer?.cancel();
+                entryTimer =
+                    Timer(const Duration(seconds: scoreEntryTimeout), () {
+                  saveScore();
+                  _enableScoreEntry = false;
+                  entryTimer = null;
+                });
+              }
+            : null,
+        style: TextButton.styleFrom(
+            shape: RoundedRectangleBorder(
+                side: const BorderSide( color: Colors.red, width:4.0 ),
+                borderRadius: BorderRadius.circular(20))),
+        child: const Text(''),
+      ),
+    );
+  }
 
   Widget scoreBox(int index) {
     List<int> sitOff = [4, 8, 12, 16, 20];
@@ -135,12 +276,34 @@ class EnterScores3State extends State<EnterScores3> {
                             if (playerNamesOnCourt[4].isEmpty) courtOf5 = false;
 
                             if (newScores[index] == -1) {
-                              newScores[index] = courtOf5 ? 6 : 8;
-                            } else {
-                              if (courtOf5) {
-                                if (newScores[index] > 6) newScores[index] = 0;
+                              if (fireStoreCollectionName.substring(3, 5) ==
+                                  'PB') {
+                                newScores[index] = courtOf5 ? 9 : 11;
                               } else {
-                                if (newScores[index] > 8) newScores[index] = 0;
+                                newScores[index] = courtOf5 ? 6 : 8;
+                              }
+                            } else {
+                              if (fireStoreCollectionName.substring(3, 5) ==
+                                  'PB') {
+                                if (courtOf5) {
+                                  if (newScores[index] > 9) {
+                                    newScores[index] = 0;
+                                  }
+                                } else {
+                                  if (newScores[index] > 11) {
+                                    newScores[index] = 0;
+                                  }
+                                }
+                              } else {
+                                if (courtOf5) {
+                                  if (newScores[index] > 6) {
+                                    newScores[index] = 0;
+                                  }
+                                } else {
+                                  if (newScores[index] > 8) {
+                                    newScores[index] = 0;
+                                  }
+                                }
                               }
                             }
                           });
@@ -183,7 +346,7 @@ class EnterScores3State extends State<EnterScores3> {
     }
     return Row(children: [
       SizedBox(
-          width: 92,
+          width: 107,
           height: hei,
           child: Center(
               child: Text(playerNamesOnCourt[index],
@@ -214,41 +377,79 @@ class EnterScores3State extends State<EnterScores3> {
     ]);
   }
 
+  Widget autoCompleteLine() {
+    const double wid = 40;
+    const double hei = 80;
+
+    return Row(children: [
+      const SizedBox(
+          width: 107,
+          height: hei,
+          child: Center(
+              child: Text('Auto\nComplete',
+                  textAlign: TextAlign.right, style: nameStyle))),
+      const SizedBox(
+        width: 5,
+      ),
+      SizedBox(width: wid, height: hei, child: autoButton(0)),
+      SizedBox(width: wid, height: hei, child: autoButton(1)),
+      SizedBox(width: wid, height: hei, child: autoButton(2)),
+      SizedBox(
+          width: playerNamesOnCourt[4].isNotEmpty ? wid : 0,
+          height: hei,
+          child: playerNamesOnCourt[4].isNotEmpty
+              ? autoButton(3)
+              : const SizedBox()),
+      SizedBox(
+          width: playerNamesOnCourt[4].isNotEmpty ? wid : 0,
+          height: hei,
+          child: playerNamesOnCourt[4].isNotEmpty
+              ? autoButton(4)
+              : const SizedBox()),
+      const SizedBox(width: 5),
+    ]);
+  }
+
   void saveScore() {
-    WriteBatch scoreUpdate = FirebaseFirestore.instance.batch();
-    for (int playerNumber = 0;
-        playerNumber < playersOnCourt.length;
-        playerNumber++) {
-      if (playersOnCourt[playerNumber] >= 0) {
-        DocumentReference doc = FirebaseFirestore.instance
-            .collection(fireStoreCollectionName)
-            .doc(Player.db[playersOnCourt[playerNumber]].playerName);
-        var details = <String, dynamic>{};
-        String updatedBy = '$loggedInPlayerName:';
-        for (int game = 0; game < 5; game++) {
-          int scr = newScores[playerNumber * 5 + game];
-          if (scr >= 0) {
-            updatedBy += scr.toString();
-            details['Score${game + 1}'] = scr;
-          } else {
-            updatedBy += 'x';
+    if (edited.contains(true)) {
+      WriteBatch scoreUpdate = FirebaseFirestore.instance.batch();
+      for (int playerNumber = 0;
+          playerNumber < playersOnCourt.length;
+          playerNumber++) {
+        if (playersOnCourt[playerNumber] >= 0) {
+          DocumentReference doc = FirebaseFirestore.instance
+              .collection(fireStoreCollectionName)
+              .doc(Player.db[playersOnCourt[playerNumber]].playerName);
+          var details = <String, dynamic>{};
+          String updatedBy = '$loggedInPlayerName:';
+          for (int game = 0; game < 5; game++) {
+            int scr = newScores[playerNumber * 5 + game];
+            if (scr >= 0) {
+              updatedBy += scr.toString();
+              details['Score${game + 1}'] = scr;
+            } else {
+              updatedBy += 'x';
+            }
           }
-        }
-        updatedBy += '/';
-        if (details.isNotEmpty) {
+          updatedBy += '/';
+          // if (details.isNotEmpty) {
           details['ScoreLastUpdatedBy'] =
               scoreLastUpdatedBy[playerNumber] + updatedBy;
           scoreUpdate.update(doc, details);
           // print(
           //     'scoreUpdate: ${details.toString()} ${Player.db[playersOnCourt[playerNumber]].playerName}');
+          // }
         }
+      }
+      scoreUpdate.commit();
+    } else {
+      if (kDebugMode) {
+        print('No new scores to saveScore');
       }
     }
     // print('clearing NewScores');
     newScores.fillRange(0, newScores.length, -9);
     edited.fillRange(0, edited.length, false);
-
-    scoreUpdate.commit();
   }
 
   void cancelScore() {
@@ -392,16 +593,19 @@ class EnterScores3State extends State<EnterScores3> {
 
   @override
   Widget build(BuildContext context) {
-
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      onPopInvoked: (bool didPop) async {
+        if (kDebugMode) {
+          print('build scores PopScope!!! $didPop');
+        }
+        // if (didPop) return;
         saveScore();
         if (entryTimer != null) {
           entryTimer!.cancel();
           entryTimer = null;
           forceExit = true;
         }
-        return true;
+        return;
       },
       child: Scaffold(
           resizeToAvoidBottomInset: false,
@@ -450,85 +654,101 @@ class EnterScores3State extends State<EnterScores3> {
                 bool allPlayersConfirmed = false;
                 bool thereAreBlanksToFillIn = false;
 
-                if (playerNamesOnCourt[4].isEmpty){
+                if (playerNamesOnCourt[4].isEmpty) {
                   // court of 4
-                  for (int game =0; game<3; game++){
-                    if (scoresReadyToConfirm){
-                    for (int pl = 0; pl<4; pl++) {
-                      if (origScores[pl * 5 + game] < 0) {
-                        scoresReadyToConfirm = false;
-                        thereAreBlanksToFillIn = true;
-                        // print('court4 not ready $game, $pl');
-                        break;
+                  for (int game = 0; game < 3; game++) {
+                    if (scoresReadyToConfirm) {
+                      for (int pl = 0; pl < 4; pl++) {
+                        if (origScores[pl * 5 + game] < 0) {
+                          scoresReadyToConfirm = false;
+                          thereAreBlanksToFillIn = true;
+                          // print('court4 not ready $game, $pl');
+                          break;
+                        }
                       }
                     }
-                    }
                   }
-
-                  int numConfirmed=0;
-
-                  for (int pl = 0; pl<4; pl++) {
+                  // print('scoresReadyToConfirm: $scoresReadyToConfirm');
+                  int numConfirmed = 0;
+                  _confirmedBy = '';
+                  _lastScoreEntryBy = '';
+                  for (int pl = 0; pl < 4; pl++) {
                     final splitStr = scoreLastUpdatedBy[pl].split('/');
-                    String lastEntry='NOBODY ENTERED';
-                    if (splitStr.length >=2 ){
-                      lastEntry = splitStr[splitStr.length-2];
+                    String lastEntry = 'NOBODY ENTERED';
+                    // as there is always a trailing '/' the last entry is always empty
+                    if (splitStr.length >= 2) {
+                      lastEntry = splitStr[splitStr.length - 2];
+                      _lastScoreEntryBy = lastEntry.split(':')[0];
                     }
                     // print('lastEntry: $lastEntry $loggedInPlayerName');
-                    if (scoreLastUpdatedBy[pl].endsWith('!!')){
+                    if (scoreLastUpdatedBy[pl].endsWith('!!/')) {
                       numConfirmed++;
-                    } else if (lastEntry.contains(loggedInPlayerName!) ){
-                      thisPlayerEnteredScoresLast = true; //this player can not confirm
+                      String confirmedBy = splitStr[splitStr.length - 2];
+                      _confirmedBy =
+                          confirmedBy.substring(0, confirmedBy.length - 2);
+                    } else if (lastEntry.contains(loggedInPlayerName!)) {
+                      thisPlayerEnteredScoresLast =
+                          true; //this player can not confirm
                     }
+                    // print('$pl LastEntry: $lastEntry, #confirmed: $numConfirmed, $_confirmedBy thisPlLast: $thisPlayerEnteredScoresLast');
                   }
-                  if (numConfirmed == 4 ){
+                  if (numConfirmed == 4) {
                     allPlayersConfirmed = true;
                   }
-                  if ((numConfirmed == 4 ) || thisPlayerEnteredScoresLast ){
+                  if ((numConfirmed == 4) || thisPlayerEnteredScoresLast) {
                     // print('court4 numConfirmed: $numConfirmed');
                     scoresReadyToConfirm = false;
                   }
                 } else {
                   // court of 5
-                  for (int game =0; game<5; game++){
-                    int numBlank=0;
-                    for (int pl = 0; pl<5; pl++) {
-                      if (origScores[pl * 5 + game] < 0){
+                  for (int game = 0; game < 5; game++) {
+                    int numBlank = 0;
+                    for (int pl = 0; pl < 5; pl++) {
+                      if (origScores[pl * 5 + game] < 0) {
                         numBlank++;
                       }
                     }
-                    if (numBlank > 1){
+                    if (numBlank > 1) {
                       scoresReadyToConfirm = false;
                       thereAreBlanksToFillIn = true;
                     }
                   }
-                  int numConfirmed=0;
+                  int numConfirmed = 0;
                   thisPlayerEnteredScoresLast = false;
-                  for (int pl = 0; pl<5; pl++) {
+                  _lastScoreEntryBy='';
+                  for (int pl = 0; pl < 5; pl++) {
                     final splitString = scoreLastUpdatedBy[pl].split('/');
-                    String lastEntry='NOBODY ENTERED';
-                    if (splitString.length >=2 ){
-                      lastEntry = splitString[splitString.length-2];
+                    String lastEntry = 'NOBODY ENTERED';
+                    if (splitString.length >= 2) {
+                      lastEntry = splitString[splitString.length - 2];
+                      // as there is always a trailing '/' the last entry is always empty
+                      _lastScoreEntryBy = lastEntry.split(':')[0];
+
                     }
-                    if (scoreLastUpdatedBy[pl].endsWith('!!')){
+                    if (scoreLastUpdatedBy[pl].endsWith('!!/')) {
                       numConfirmed++;
-                    } else if (lastEntry.contains(loggedInPlayerName!) ){
-                      thisPlayerEnteredScoresLast = true; //this player can not confirm
+                    } else if (lastEntry.contains(loggedInPlayerName!)) {
+                      thisPlayerEnteredScoresLast =
+                          true; //this player can not confirm
                     }
                   }
-                  if (numConfirmed == 5 ){
+                  if (numConfirmed == 5) {
                     allPlayersConfirmed = true;
                   }
-                  if ((numConfirmed == 5 ) || thisPlayerEnteredScoresLast ) {
+                  if ((numConfirmed == 5) || thisPlayerEnteredScoresLast) {
                     scoresReadyToConfirm = false;
                   }
                 }
-                // print('scoresReadyToConfirm: $scoresReadyToConfirm, $loggedInPlayerName');
+                print('scoresReadyToConfirm: $scoresReadyToConfirm, $loggedInPlayerName');
 
-                _errorString1 = errorGameCount('');
+                if (fireStoreCollectionName.substring(3, 5) != 'PB') {
+                  _errorString1 = errorGameCount('');
 
-                _errorString1 = errorPairs(_errorString1);
-
-                print('This last: $thisPlayerEnteredScoresLast, allConfirmed: $allPlayersConfirmed ScoresReady: $scoresReadyToConfirm');
+                  _errorString1 = errorPairs(_errorString1);
+                }
+                // if (kDebugMode) {
+                //   print('This last: $thisPlayerEnteredScoresLast, allConfirmed: $allPlayersConfirmed ScoresReady: $scoresReadyToConfirm');
+                // }
 
                 return SingleChildScrollView(
                   primary: true,
@@ -563,7 +783,9 @@ class EnterScores3State extends State<EnterScores3> {
                                       _plusMinus = !_plusMinus;
                                     });
                                   },
-                            child: Text(_plusMinus ? 'PLUS' : 'minus')),
+                            child: Text(_plusMinus
+                                ? 'Count UP/down'
+                                : 'Count DOWN/up')),
                         const Spacer(),
                         ElevatedButton(
                             onPressed:
@@ -593,28 +815,48 @@ class EnterScores3State extends State<EnterScores3> {
                     playerNamesOnCourt[4].isNotEmpty
                         ? scoreLine(4)
                         : const SizedBox(),
+                    autoCompleteLine(),
                     Text(
                       _errorString1,
                       style: nameBoldStyle,
                     ),
+                    const SizedBox(height: 15),
+                    _confirmedBy.isNotEmpty
+                        ? Text(
+                            'Confirmed by: $_confirmedBy',
+                            style: nameBoldStyle,
+                          )
+                        : Text(
+                            'Last Score Entered By: $_lastScoreEntryBy',
+                            style: nameBoldStyle,
+                          ),
                     ElevatedButton(
-                        onPressed: scoresReadyToConfirm? () {
-                                Player.updateConfirmScore(playersOnCourt);
-                                if (entryTimer != null) {
-                                  entryTimer!.cancel();
-                                  entryTimer = null;
-                                  forceExit = true;
-                                }
-                                Navigator.pop(context);
+                      style: ElevatedButton.styleFrom( backgroundColor: Colors.green,
+                      foregroundColor: Colors.black),
+                      onPressed: (scoresReadyToConfirm || Player.admin2Enabled)
+                          ? () {
+                              Player.updateConfirmScore(playersOnCourt);
+                              if (entryTimer != null) {
+                                entryTimer!.cancel();
+                                entryTimer = null;
+                                forceExit = true;
                               }
-                            : null,
-                        child: (allPlayersConfirmed?const Text('Scores are CONFIRMED'):(
-                        thereAreBlanksToFillIn? const Text('Need scores for all of the games before confirming'): (
-                                thisPlayerEnteredScoresLast? const Text('Someone else confirms that scores are correct'):
-                                                         const Text('Press to confirm scores are correct')
-
-                        )
-                        )),
+                              Navigator.pop(context);
+                            }
+                          : null,
+                      child: (allPlayersConfirmed
+                          ? const Text('Scores are CONFIRMED')
+                          : (thereAreBlanksToFillIn
+                              ? const Text(
+                                  'Need scores for all of the games before confirming')
+                              : (thisPlayerEnteredScoresLast
+                                  ? const Text(
+                                      'Someone else confirms that scores are correct')
+                                  : (_enableScoreEntry || Player.admin1Enabled)
+                                      ? const Text(
+                                          'Press to confirm scores are correct')
+                                      : const Text(
+                                          'You did not play on this court')))),
                     ),
                     const SizedBox(
                       height: 10,
@@ -676,6 +918,13 @@ class EnterScores3State extends State<EnterScores3> {
                             style: nameStyle,
                             textAlign: TextAlign.center,
                           )
+                        : const Text(''),
+                    playerNamesOnCourt[4].isNotEmpty
+                        ? const Text(
+                      'if 1&2 did not play 3&4 first then \nrenumber the players and\nplay with those new numbers',
+                      style: nameStyle,
+                      textAlign: TextAlign.center,
+                    )
                         : const Text(''),
                   ]),
                 );

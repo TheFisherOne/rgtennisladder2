@@ -28,6 +28,7 @@ class _ShowRulesState extends State<ShowRules> {
             StorageImage(fullPath: 'assets/Rules0002.jpg'),
             StorageImage(fullPath: 'assets/Rules0003.jpg'),
             StorageImage(fullPath: 'assets/Rules0004.jpg'),
+            StorageImage(fullPath: 'assets/Rules0005.jpg'),
           ])),
     );
   }

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:core';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:quiver/collection.dart';
 import 'package:rgtennisladder/screens/authenticate/sign_in.dart';
 import 'package:rgtennisladder/screens/home/administration.dart';
 import 'package:rgtennisladder/screens/wrapper.dart';
@@ -86,6 +88,7 @@ class Player {
   static int weeksPlayed = -1;
   static String courtInfoString = '';
   static int playOnWeekday = 0;
+  static String lastScoreConfirm = '';
 
   // stuff for location
   static double rgLatitude = 0;
@@ -96,14 +99,24 @@ class Player {
   static List<int> playersPerCourt =
       List.filled(10, 0); //larger than it needs to be
   static var onUpdate = StreamController<bool>.broadcast();
-  static bool topOn1 = true;
   static int numberOfAssignedCourts = 0;
   static String adLink = '';
-  static bool weJustConfirmed=false;
+  static bool weJustConfirmed = false;
   static bool nonPlayingGuest = true;
   static bool nonPlayingAdmin = false;
 
-  static int debugRotateAmount=0;
+  static int debugRotateAmount = 0;
+  // static List<int>? orderOfCourts;
+  static List<String> orderOfCourts = ['', '', '', ''];
+  static List<String> finalOrderOfCourts = ['', '', '', ''];
+  static int orderOfCourtsUsed = 0;
+  static List<String> workingOrderOfCourtsStr = [];
+  static String courtsNotAvailable = '';
+  static List<String> courtsNotAvailableArray = [];
+  static String courtsForFives = '';
+  static List<String> courtsForFivesArray = [];
+  static String priorityOfCourts = '';
+  static bool atLeast1ScoreEntered = false;
 
   String uid = '';
   String playerName = '';
@@ -138,12 +151,14 @@ class Player {
     numPresent = 0;
     Player.nonPlayingAdmin = false;
     Player.nonPlayingGuest = true;
+    atLeast1ScoreEntered = false;
 
+    // print('snapshot len: ${snapshot.requireData.docs.length}');
     db = List.empty(growable: true);
     for (var doc in snapshot.requireData.docs) {
       // print('buildPlayerDB ${doc.id}');
       if (doc.id == '_configuration_') {
-        Player.courtsAvailable = doc.get("numberOfCourts");
+        // Player.courtsAvailable = doc.get("numberOfCourts");
         Player.shift5Player = doc.get("shift5player");
         Player.rgLatitude = doc.get("latitude");
         Player.rgLongitude = doc.get("longitude");
@@ -151,6 +166,42 @@ class Player {
         Player.freezeCheckins = doc.get('FreezeCheckIns');
         Player.weeksPlayed = doc.get('WeeksPlayed');
         Player.playOnWeekday = doc.get('PlayOnWeekday');
+        Player.lastScoreConfirm = doc.get('LastScoreConfirm');
+        try {
+          Player.orderOfCourts[0] = doc.get('OrderOfCourts1');
+          Player.orderOfCourts[1] = doc.get('OrderOfCourts2');
+          Player.orderOfCourts[2] = doc.get('OrderOfCourts3');
+          Player.orderOfCourts[3] = doc.get('OrderOfCourts4');
+          Player.orderOfCourtsUsed = doc.get('OrderOfCourtsUsed');
+          Player.courtsNotAvailable = doc.get('CourtsNotAvailable');
+          Player.courtsForFives = doc.get('CourtsForFives');
+          Player.priorityOfCourts = doc.get('PriorityOfCourts');
+        } catch (e) {
+          if (kDebugMode) {
+            print('ERROR!!!!!!! court order info not all in _configuration_');
+          }
+        }
+        for (int i = 0; i < 4; i++) {
+          if (orderOfCourts[orderOfCourtsUsed - 1].isNotEmpty) {
+            break;
+          }
+          orderOfCourtsUsed += 1;
+          if (orderOfCourtsUsed > 4) {
+            orderOfCourtsUsed = 1;
+          }
+        }
+        finalOrderOfCourts = orderOfCourts[orderOfCourtsUsed - 1].split(',');
+        courtsNotAvailableArray = courtsNotAvailable.split(',');
+        courtsForFivesArray = courtsForFives.split(',');
+
+        for (int i = 0; i < courtsNotAvailableArray.length; i++) {
+          finalOrderOfCourts.remove(courtsNotAvailableArray[i]);
+          courtsForFivesArray.remove(courtsNotAvailableArray[i]);
+        }
+        Player.courtsAvailable = finalOrderOfCourts.length;
+
+        // print('Using OrderOfCourts[$OrderOfCourtsUsed]  ${OrderOfCourts[OrderOfCourtsUsed-1]}');
+
         try {
           Player.adNumber = doc.get('adNumber');
         } catch (e) {
@@ -169,6 +220,7 @@ class Player {
           }
           Player.playOnWeekday = 1;
         }
+        // print("needs version: ${doc.get('RequiredSoftwareVersion')} running version $softwareVersion");
         if (doc.get('RequiredSoftwareVersion') > softwareVersion) {
           db.clear();
           if (kDebugMode) {
@@ -231,7 +283,7 @@ class Player {
           try {
             newPlayer.lastMovement = doc.get('LastMovement');
           } catch (e) {
-            newPlayer.lastMovement = '0:0:0:0:0';
+            newPlayer.lastMovement = '0:0:0:0:0:0:0:0:0:0:0:0';
           }
           int totalScore = 0;
 
@@ -248,12 +300,16 @@ class Player {
 
           newPlayer.totalScore = totalScore;
 
+          if (totalScore > 0 ){
+            atLeast1ScoreEntered = true;
+          }
+
           numPresent += newPlayer.present ? 1 : 0;
 
           // insert into the db in rank order
           int insertRank = 0;
           // print('CHECKING: ${doc.id}/$loggedInPlayerName');
-          if (doc.id == loggedInPlayerName){
+          if (doc.id == loggedInPlayerName) {
             Player.nonPlayingGuest = false;
             // print('found logged in player ${doc.id}');
           }
@@ -272,7 +328,7 @@ class Player {
         } else {
           if (doc.id == loggedInPlayerName) {
             int adminLevel = doc.get('Admin');
-            if (adminLevel > 0)  {
+            if (adminLevel > 1) {
               Player.nonPlayingAdmin = true;
             }
 
@@ -332,14 +388,12 @@ class Player {
     if (playersPerCourt1.isNotEmpty) {
       rotateAmt = Player.shift5Player;
     }
-    Player.topOn1 = true;
-    if ((Player.shift5Player % 2) == 0) {
-      Player.topOn1 = false;
-    }
+
     // print("playersPerCourt1-1: $playersPerCourt1");
     // playersPerCourt1 is of length total number of courts needed
     // with the first n marked as 5 and the last ones marked as 4
     // keep the first choice as a court of 5
+    // print('playersPerCourt1 before: $playersPerCourt1');
     if (playersPerCourt1.length == 3) {
       int tmp = playersPerCourt1[2];
       playersPerCourt1[2] = playersPerCourt1[1];
@@ -356,6 +410,7 @@ class Player {
       playersPerCourt1[2] = playersPerCourt1[1];
       playersPerCourt1[1] = tmp;
     }
+    // print('playersPerCourt1 after: $playersPerCourt1');
     List<int> prevPlayersPerCourt = Player.playersPerCourt;
     debugRotateAmount = rotateAmt % playersPerCourt1.length;
     // print("playersPerCourt1a: $playersPerCourt1 $rotateAmt ${playersPerCourt1.length} ${debugRotateAmount}");
@@ -364,6 +419,7 @@ class Player {
       prevPlayersPerCourt[overrideCourt4to5 - 1] = 5;
     } else {
       for (var i = 0; i < playersPerCourt1.length; i++) {
+        // print('court5 shuffle: $i, $rotateAmt, ${playersPerCourt1.length}, ${(i + rotateAmt) % playersPerCourt1.length}');
         Player.playersPerCourt[i] =
             playersPerCourt1[(i + rotateAmt) % playersPerCourt1.length];
       }
@@ -441,19 +497,24 @@ class Player {
       playerIndex += 1;
     }
     // print('onACourtOf    $onACourtOf');
-    // print('absentOnCourt $absentOnCourt');
+    // print('absentOnCourt $absentOnCourt ${absentOnCourt.length}');
     numberOfAssignedCourts = court - 1;
     courtInfoString = getCourtInfoString();
 
     List<int> workingRank = List.filled(Player.db.length, 0);
     List<bool> moveDown = List.filled(Player.db.length, false);
     List<bool> moveDownTwice = List.filled(Player.db.length, false);
+    // print('workingRank: $workingRank');
     for (Player pl in Player.db) {
       int rank = pl.currentRank;
       workingRank[rank - 1] = rank;
-      if (!pl.present) {
+      if (fireStoreCollectionName.substring(3, 5) == 'PB') {
+        if (!pl.present) {
+          moveDown[rank - 1] = true;
+        }
+      } else if (!pl.present) {
         moveDown[rank - 1] = true;
-        if (pl.weeksAway == 0) {
+        if ((pl.weeksAway == 0)) {
           moveDownTwice[rank - 1] = true;
         }
       }
@@ -558,12 +619,11 @@ class Player {
       }
       if (totalScores.isEmpty) break;
 
-
       for (var i = 0; i < finishOrder.length; i++) {
         int newPos = finishOrder[i];
         movementDueToScore[rank[finishOrder[i]] - 1] = rank[newPos] - rank[i];
         placeOnCourt[rank[finishOrder[i]] - 1] = i + 1;
-        origPlaceOnCourt[rank[i]-1] = i+1;
+        origPlaceOnCourt[rank[i] - 1] = i + 1;
         // print('finish: $i, ${finishOrder[i]} ${rank[finishOrder[i]]}');
       }
       // print('finishOrder: $court $finishOrder $rank $origPlaceOnCourt');
@@ -623,6 +683,52 @@ class Player {
     return true;
   }
 
+  static List<bool> isOrderOfCourtsValid() {
+    List<bool> result = [true, true, true, true];
+    var sortedPriority = Player.priorityOfCourts.split(',');
+    sortedPriority.sort();
+
+    for (int i = 0; i < Player.orderOfCourts.length; i++) {
+      var list1 = Player.orderOfCourts[i].split(',');
+      // print('orderOfCourts $i $list1 ${list1.length}');
+      if (list1[0].isEmpty) {
+        result[i] = true;
+      } else {
+        list1.sort();
+        result[i] = listsEqual(sortedPriority, list1);
+      }
+    }
+    return result;
+  }
+
+  static bool isCourtsForFivesValid() {
+    var sortedPriority = Player.priorityOfCourts.split(',');
+    sortedPriority.sort();
+    var list1 = Player.courtsForFives.split(',');
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i].isNotEmpty && !sortedPriority.contains(list1[i])) {
+        // print('isCourtsForFivesValid $i $list1 , ${list1[i]} from $sortedPriority');
+        return false;
+      }
+      sortedPriority.remove(list1[0]);
+    }
+    return true;
+  }
+
+  static bool isCourtsNotAvailableValid() {
+    var sortedPriority = Player.priorityOfCourts.split(',');
+    sortedPriority.sort();
+    var list1 = Player.courtsNotAvailable.split(',');
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i].isNotEmpty && !sortedPriority.contains(list1[i])) {
+        // print('isCourtsNotAvailable $i $list1 , ${list1[i]} from $sortedPriority');
+        return false;
+      }
+      sortedPriority.remove(list1[0]);
+    }
+    return true;
+  }
+
   static bool loggedInUserIsAdmin1() {
     Player? signedInUser = findPlayerByUID(loggedInUID);
     // print('admin1 $loggedInUID $signedInUser');
@@ -654,12 +760,6 @@ class Player {
         .update({
       'FreezeCheckIns': value,
     });
-    // if (!value) {
-    //   if (kDebugMode) {
-    //     print('updateFreezeCheckIns');
-    //   }
-    //   // clearAllScores(clearPresentAsWell: false);
-    // }
   }
 
   void updatePresent(bool value) {
@@ -674,6 +774,22 @@ class Player {
     });
   }
 
+  String getLastWeeksInfo() {
+    final movement = lastMovement.split(':');
+
+    if (movement.length < 15) {
+      return '';
+    }
+    if (movement[12] == '0') {
+      if (movement[3] != '0') {
+        return '${movement[0]}${movement[3]}';
+      } else {
+        return '${movement[0]}-0';
+      }
+    }
+    return '${movement[0]}:${movement[12]}:${movement[13]}:${movement[14]}';
+  }
+
   String getLastMovement() {
     final movement = lastMovement.split(':');
     String result;
@@ -684,7 +800,8 @@ class Player {
       return '';
     }
     result = 'Moved From Rank: ${movement[0]} To: ${movement[1]}\n';
-    result += 'You moved from place ${(movement.length>11)?movement[11]:'-'} to ${movement[10]}\n';
+    result +=
+        'You moved from place ${(movement.length > 11) ? movement[11] : '-'} to ${movement[10]}\n';
 
     if (movement[2][0] == '-') {
       result += 'Moved down due to score: ${movement[2].substring(1)}\n';
@@ -745,12 +862,14 @@ class Player {
     List<int> playersPerCourt = List.filled(courtsAvailable, 0);
     int courtsOf0 = 0;
     int expectedPlayers = 0;
+    int presentPlayers = 0;
     for (Player pl in Player.db) {
       if (pl.weeksAway == 0) {
         expectedPlayers++;
       }
       if (pl.assignedCourt > 0) {
         playersPerCourt[pl.assignedCourt - 1] += 1;
+        presentPlayers += 1;
       } else if (pl.assignedCourt == 0) {
         courtsOf0 += 1;
       }
@@ -764,12 +883,13 @@ class Player {
         courtsOf4 += 1;
       }
     }
-    String retValue = '${courtsOf4}of4  &  ${courtsOf5}of5 #$expectedPlayers';
+    String retValue =
+        '${courtsOf4}of4  &  ${courtsOf5}of5 =$presentPlayers/$expectedPlayers';
     if (courtsOf0 > 0) {
       retValue += ', +$courtsOf0';
     }
 
-    retValue += ' >$debugRotateAmount';
+    // retValue += ' >$debugRotateAmount';
     // print('Court Info $retValue');
     return retValue;
   }
@@ -795,7 +915,8 @@ class Player {
             .collection(fireStoreCollectionName)
             .doc(Player.db[playersOnCourt[pl]].playerName);
         Player.db[playersOnCourt[pl]].scoreLastUpdatedBy +=
-            '$signedInUserName!!';
+            '$signedInUserName!!/';
+
         // print('updateConfirmScore ${Player.db[playersOnCourt[pl]]
         //     .scoreLastUpdatedBy}  ${Player.db[playersOnCourt[pl]]
         //     .playerName} $signedInUserName');
@@ -805,74 +926,16 @@ class Player {
         };
         scoreUpdate.update(doc, details);
       }
+      // print('ConfirmScore $loggedInPlayerName');
+      var doc = FirebaseFirestore.instance
+          .collection(fireStoreCollectionName)
+          .doc('_configuration_');
+      scoreUpdate.update(doc, {'LastScoreConfirm': loggedInPlayerName});
     }
+
     scoreUpdate.commit();
     // print('Finished updateConfirmScore');
     weJustConfirmed = true;
-  }
-
-  static void updateScore(List<int> playersOnCourt, List<int> newScore) {
-    if (!freezeCheckins) {
-      if (kDebugMode) {
-        print("Can't save the scores after we get out of freezeCheckIns!");
-      }
-      return;
-    }
-    List<DocumentReference> docsForPlayers = List.empty(growable: true);
-    for (int playerNumber = 0;
-        playerNumber < playersOnCourt.length;
-        playerNumber++) {
-      if (playersOnCourt[playerNumber] >= 0) {
-        docsForPlayers.add(FirebaseFirestore.instance
-            .collection(fireStoreCollectionName)
-            .doc(Player.db[playersOnCourt[playerNumber]].playerName));
-        int totalScore = 0;
-        for (int i = 0; i < 5; i++) {
-          int thisScore = newScore[playerNumber * 6 + i];
-          if (thisScore < 0) thisScore = 0;
-          totalScore += thisScore;
-        }
-        Player.db[playersOnCourt[playerNumber]].totalScore = totalScore;
-      }
-    }
-    Player? signedInUser = findPlayerByUID(loggedInUID);
-    String signedInUserName = 'Admin';
-    if (signedInUser != null) {
-      signedInUserName = signedInUser.playerName;
-    }
-    WriteBatch scoreUpdate = FirebaseFirestore.instance.batch();
-    for (int playerNumber = 0;
-        playerNumber < docsForPlayers.length;
-        playerNumber++) {
-      int scr1 = newScore[playerNumber * 6 + 0];
-      int scr2 = newScore[playerNumber * 6 + 1];
-      int scr3 = newScore[playerNumber * 6 + 2];
-      int scr4 = newScore[playerNumber * 6 + 3];
-      int scr5 = newScore[playerNumber * 6 + 4];
-      // print("updateScore1: ${Player.db[playersOnCourt[playerNumber]].score1} == $scr1");
-      // print("updateScore2: ${Player.db[playersOnCourt[playerNumber]].score2} == $scr2");
-      // print("updateScore3: ${Player.db[playersOnCourt[playerNumber]].score3} == $scr3");
-      if ((Player.db[playersOnCourt[playerNumber]].score1 != scr1) |
-          (Player.db[playersOnCourt[playerNumber]].score2 != scr2) |
-          (Player.db[playersOnCourt[playerNumber]].score3 != scr3) |
-          (Player.db[playersOnCourt[playerNumber]].score4 != scr4) |
-          (Player.db[playersOnCourt[playerNumber]].score5 != scr5)) {
-        Player.db[playersOnCourt[playerNumber]].scoreLastUpdatedBy +=
-            '$signedInUserName:$scr1$scr2$scr3${(scr4 >= 0) ? scr4.toString() : ""}${(scr5 >= 0) ? scr5.toString() : ""}/';
-        var details = {
-          'Score1': scr1,
-          'Score2': scr2,
-          'Score3': scr3,
-          'Score4': scr4,
-          'Score5': scr5,
-          'ScoreLastUpdatedBy':
-              Player.db[playersOnCourt[playerNumber]].scoreLastUpdatedBy,
-        };
-        // print('updateScore $details');
-        scoreUpdate.update(docsForPlayers[playerNumber], details);
-      }
-    }
-    scoreUpdate.commit();
   }
 
   static void clearAllScores({bool clearPresentAsWell = true}) {
@@ -913,17 +976,29 @@ class Player {
     }
     if (clearPresentAsWell) {
       //print('adding 1 to shift5Player=$shift5Player');
-      int oddEven = (Player.shift5Player % 2) + 1;
-      if (oddEven > 1) {
-        oddEven = 0;
+      Player.shift5Player = random.nextInt(1000);
+      Player.orderOfCourtsUsed += 1;
+      if ((Player.orderOfCourtsUsed > 4) || (Player.orderOfCourtsUsed < 1)) {
+        Player.orderOfCourtsUsed = 1;
       }
-      Player.shift5Player = random.nextInt(500) * 2 + oddEven;
-      ;
+      for (int i = 0; i < 4; i++) {
+        if (orderOfCourts[orderOfCourtsUsed - 1].isNotEmpty) {
+          break;
+        }
+        orderOfCourtsUsed += 1;
+        if (orderOfCourtsUsed > 4) {
+          orderOfCourtsUsed = 1;
+        }
+      }
+      // print('shift5Player: $shift5Player  OrderOfCourtsUsed $OrderOfCourtsUsed');
       scoreUpdate.update(
           FirebaseFirestore.instance
               .collection(fireStoreCollectionName)
               .doc('_configuration_'),
-          {'shift5player': Player.shift5Player});
+          {
+            'shift5player': Player.shift5Player,
+            'OrderOfCourtsUsed': Player.orderOfCourtsUsed
+          });
     }
     scoreUpdate.commit();
   }
@@ -1025,7 +1100,8 @@ class Player {
   }
 
   static void moveToOtherLadder(String newName) async {
-    if (fireStoreCollectionName.substring(0, 9) != 'rg_monday') {
+    if ((fireStoreCollectionName.substring(0, 9) != 'rg_monday') &&
+        (fireStoreCollectionName.substring(0, 13) != 'rg_sunday_700')) {
       if (kDebugMode) {
         print(
             'ERROR: should not try to move $newName from ladder $fireStoreCollectionName');
@@ -1035,6 +1111,10 @@ class Player {
     String otherLadder = 'rg_monday_745';
     if (fireStoreCollectionName == 'rg_monday_745') {
       otherLadder = 'rg_monday_600';
+    } else if (fireStoreCollectionName == 'rg_sunday_700') {
+      otherLadder = 'rg_sunday_700b';
+    } else if (fireStoreCollectionName == 'rg_sunday_700b') {
+      otherLadder = 'rg_sunday_700';
     }
     Player? shouldBeFound = findPlayerByName(newName);
     if (shouldBeFound == null) {
@@ -1043,38 +1123,68 @@ class Player {
       }
       return;
     }
-
+    // print('Moving player $newName from $fireStoreCollectionName to $otherLadder');
     int newRank = 0;
+    // await FirebaseFirestore.instance
+    //     .collection(otherLadder)
+    //     .get()
+    //     .then((doc) => {
+    //           doc.docs.forEach((result) {
+    //             if ((otherLadder == 'rg_monday_745') || (otherLadder == 'rg_sunday_700b')) {
+    //               newRank = 1;
+    //               int rank = result.get("Rank");
+    //
+    //               //shuffle everyone down
+    //               if ((rank > 0) && (rank < 900)) {
+    //                 FirebaseFirestore.instance
+    //                     .collection(otherLadder)
+    //                     .doc(result.id)
+    //                     .update({'Rank': rank + 1});
+    //               }
+    //             } else {
+    //               int rank = result.get("Rank");
+    //               if ((rank > 0) && (rank < 99) & (rank > newRank)) {
+    //                 newRank = rank;
+    //               }
+    //             }
+    //           })
+    //         });
+    WriteBatch rankUpdate = FirebaseFirestore.instance.batch();
     await FirebaseFirestore.instance
         .collection(otherLadder)
         .get()
-        .then((doc) => {
-              doc.docs.forEach((result) {
-                if (otherLadder == 'rg_monday_745') {
-                  newRank = 1;
-                  int rank = result.get("Rank");
-                  // print('745 Found entry ${rank} ${result.id}');
+        .then((result) {
+      for (var doc in result.docs) {
+        // print('shuffling: ${doc.id}');
+        if ((otherLadder == 'rg_monday_745') ||
+            (otherLadder == 'rg_sunday_700b')) {
+          newRank = 1;
+          int rank = doc.get("Rank");
 
-                  // WriteBatch rankUpdate = FirebaseFirestore.instance.batch();
-                  if ((rank > 0) && (rank < 99)) {
-                    FirebaseFirestore.instance
-                        .collection(otherLadder)
-                        .doc(result.id)
-                        .update({'Rank': rank + 1});
-                  }
-                } else {
-                  int rank = result.get("Rank");
-                  if ((rank > 0) && (rank < 99) & (rank > newRank)) {
-                    newRank = rank;
-                  }
-                }
-              })
-            });
-    if (otherLadder == 'rg_monday_600') {
+          //shuffle everyone down
+          if ((rank > 0) && (rank < 900)) {
+            // print('shuffling down $otherLadder, ${doc.id} Rank: ${rank+1}');
+            rankUpdate.update(doc.reference, {'Rank': rank + 1});
+            // FirebaseFirestore.instance
+            //     .collection(otherLadder)
+            //     .doc(result.id)
+            //     .update({'Rank': rank + 1});
+          }
+        } else {
+          int rank = doc.get("Rank");
+          if ((rank > 0) && (rank < 99) & (rank > newRank)) {
+            newRank = rank;
+          }
+        }
+      }
+    });
+    await rankUpdate.commit();
+    // this is actually setting the rank to be 1 more than the highest found
+    if ((otherLadder == 'rg_monday_600') || (otherLadder == 'rg_sunday_700')) {
       newRank += 1;
     }
-    // print('new rank is $newRank');
-    FirebaseFirestore.instance.collection(otherLadder).doc(newName).set({
+    // print('new rank is $newRank for $newName in ladder $otherLadder');
+    await FirebaseFirestore.instance.collection(otherLadder).doc(newName).set({
       'Admin': shouldBeFound.admin,
       'Present': false,
       'Rank': newRank,
@@ -1091,6 +1201,7 @@ class Player {
     });
 
     deleteUser(newName);
+    // print('moved $newName');
     return;
   }
 
@@ -1153,13 +1264,27 @@ class Player {
       }
       return;
     }
-    FirebaseFirestore.instance
-        .collection(fireStoreCollectionName)
-        .doc(newName)
-        .update({
-      'WeeksAway': newVal,
-      'Present': false,
-    });
+    //need to prevent someone clicking "Present" then WeeksAway
+    // but also want to allow them to set WeeksAway at 22:00 even if the ladder is still frozen
+    // clearing "Present" when the ladder is frozen results in a serious corruption of the scoring
+    // the Present flag will be cleared when the scores are finalized
+    if (Player.freezeCheckins) {
+      FirebaseFirestore.instance
+          .collection(fireStoreCollectionName)
+          .doc(newName)
+          .update({
+        'WeeksAway': newVal,
+        // 'Present': false,
+      });
+    } else {
+      FirebaseFirestore.instance
+          .collection(fireStoreCollectionName)
+          .doc(newName)
+          .update({
+        'WeeksAway': newVal,
+        'Present': false,
+      });
+    }
   }
 
   static void setCourtsAvailable(int newLevel) {
@@ -1172,6 +1297,13 @@ class Player {
       'numberOfCourts': newLevel,
     });
     //print('SETTING courtsAvailable to $newLevel');
+  }
+
+  static void incrementShift5Player() {
+    FirebaseFirestore.instance
+        .collection(fireStoreCollectionName)
+        .doc('_configuration_')
+        .update({'shift5player': FieldValue.increment(1)});
   }
 
   static void clearUID(String newName) {
@@ -1250,7 +1382,7 @@ class Player {
     setWeeksPlayed(Player.weeksPlayed + 1);
     String outputBuf = '';
     String header =
-        'Week,Court,oldR,Pres.,+-pl,+-aw,+-Wi,scr1,scr2,scr3,scr4,scr5,Total,newR,Player Name              ,Time Present,Away,ScoredBy\n';
+        'Week,Court,oldR,Pres.,+-pl,+-aw,+-Wi,scr1,scr2,scr3,scr4,scr5,Total,newR,Player Name              ,Time Present,Away,ScoredBy,Court,Players,TotalScore\n';
     for (Player pl in db) {
       outputBuf += '${Player.weeksPlayed.toString().padLeft(4)},';
       outputBuf += '${pl.assignedCourt.toString().padLeft(4)},';
@@ -1274,7 +1406,12 @@ class Player {
         outputBuf += ',';
       }
       outputBuf += '${pl.weeksAway},';
-      outputBuf += '${pl.scoreLastUpdatedBy.toString().padLeft(15)},\n';
+      outputBuf += '${pl.scoreLastUpdatedBy.toString().padLeft(15)},';
+      outputBuf +=
+          '${(pl.assignedCourt > 0) ? workingOrderOfCourtsStr[pl.assignedCourt - 1] : 0},';
+      outputBuf +=
+          '${(pl.assignedCourt > 0) ? playersPerCourt[pl.assignedCourt - 1] : 0},';
+      outputBuf += '${pl.totalScore.toString().padLeft(3)},\n';
     }
     try {
       await firebase_storage.FirebaseStorage.instance.ref(filename).putString(
@@ -1307,13 +1444,14 @@ class Player {
     //print('Finished writing csv file to storage');
   }
 
-  static void applyMovement() async {
+  static void applyMovement({bool clearPresentAsWell = true}) async {
     if (!freezeCheckins) return;
     await uploadScore();
 
     //print('starting to update ranks');
     DocumentReference<Map<String, dynamic>> doc;
     WriteBatch scoreUpdate = FirebaseFirestore.instance.batch();
+    // print('playersPerCourt: $playersPerCourt');
     for (int index = 0; index < Player.db.length; index++) {
       if (db[index].weeksAway > 0) {
         db[index].weeksAway -= 1;
@@ -1321,11 +1459,12 @@ class Player {
       doc = FirebaseFirestore.instance
           .collection(fireStoreCollectionName)
           .doc(Player.db[index].playerName);
+      // print('index: $index, assignedCourt: ${db[index].assignedCourt}');
       scoreUpdate.update(doc, {
         'Rank': db[index].newRank,
         'WeeksAway': db[index].weeksAway,
         'LastMovement':
-            '${db[index].currentRank}:${db[index].newRank}:${db[index].movementDueToScore}:${db[index].correctedMovementDueToAway}:${db[index].movementDueToWinnerJumping}:${db[index].score1}:${db[index].score2}:${db[index].score3}:${db[index].score4}:${db[index].score5}:${db[index].placeOnCourt}:${db[index].origPlaceOnCourt}',
+            '${db[index].currentRank}:${db[index].newRank}:${db[index].movementDueToScore}:${db[index].correctedMovementDueToAway}:${db[index].movementDueToWinnerJumping}:${db[index].score1}:${db[index].score2}:${db[index].score3}:${db[index].score4}:${db[index].score5}:${db[index].placeOnCourt}:${db[index].origPlaceOnCourt}:${(db[index].assignedCourt > 0) ? workingOrderOfCourtsStr[db[index].assignedCourt - 1] : 0}:${(db[index].assignedCourt > 0) ? playersPerCourt[db[index].assignedCourt - 1] : 0}:${db[index].totalScore}',
       });
     }
     doc = FirebaseFirestore.instance
@@ -1334,6 +1473,6 @@ class Player {
     scoreUpdate.update(doc, {'FreezeCheckIns': false});
     scoreUpdate.commit();
     //print('apply movement');
-    clearAllScores();
+    clearAllScores(clearPresentAsWell: clearPresentAsWell);
   }
 }

@@ -3,6 +3,7 @@ import 'package:rgtennisladder/models/appuser.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rgtennisladder/services/player_db.dart';
 
+String signInErrorString = '';
 
 class AuthService {
   final FirebaseAuth _auth= FirebaseAuth.instance;
@@ -20,6 +21,7 @@ class AuthService {
   // sign in with email and password
 
   Future signInWithEmailAndPassword(String email, String password) async {
+    signInErrorString = '';
     try {
       Player.admin1Enabled=false;
       Player.admin2Enabled=false;
@@ -33,6 +35,7 @@ class AuthService {
     } catch(e){
       if (kDebugMode) {
         print('e5 ${e.toString()}');
+        signInErrorString = e.toString();
       }
       return null;
     }

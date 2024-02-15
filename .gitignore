@@ -39,6 +39,7 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 firebaseAuth.dart
+web/index.html
 
 # Android Studio will place build artifacts here
 /android/app/debug

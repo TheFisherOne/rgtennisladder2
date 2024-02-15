@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-const int softwareVersion=9;
+const int softwareVersion=14;
 
 const textInputDecoration = InputDecoration(
     fillColor: Colors.white,
@@ -13,6 +13,11 @@ const textInputDecoration = InputDecoration(
 
 const double appFontSize=20;
 const nameStyle = TextStyle(
+    decoration: TextDecoration.none,
+    fontSize: appFontSize,
+    fontWeight: FontWeight.normal);
+const coloredNameStyle = TextStyle(
+  backgroundColor: Colors.lightGreen,
     decoration: TextDecoration.none,
     fontSize: appFontSize,
     fontWeight: FontWeight.normal);
@@ -59,8 +64,12 @@ var ladderList = [
   'rg_monday_600',
   'rg_monday_745',
   'rg_wednesday_100',
-  // 'rg_thursday_600',
-  'rg_thursday_700',
-  // 'rg_friday_730',
+  'rg_thursday_600',
+  // 'rg_thursday_700',
+  'rg_friday_730',
+  'rg_sunday_700',
+  'rg_sunday_700b',
+  'rg_PB_wed_930',
+  'rg_PB_fri_1000',
   'rgtennisladdermonday600'
 ];

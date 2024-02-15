@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -44,7 +43,7 @@ Future<void> uploadPicture(XFile file) async {
   try {
     await firebase_storage.FirebaseStorage.instance
         .ref(filename)
-        .putData(img.encodePng(resized) as Uint8List);
+        .putData(img.encodePng(resized));
   } catch (e) {
     if (kDebugMode) {
       print('Error on write to storage $e');
@@ -110,10 +109,8 @@ class StatsState extends State<Stats> {
     //   }
     // }
     String selectedName = '';
-    String? selectedEmail;
     if (statsPlayerNumber >= 0) {
       selectedName = Player.db[statsPlayerNumber].playerName;
-      selectedEmail=Player.db[statsPlayerNumber].email;
       // print ('found player number: $statsPlayerNumber $selectedName $selectedEmail');
     }
 
@@ -129,10 +126,14 @@ class StatsState extends State<Stats> {
       }
     }
     // print('send reset: $selectedEmail ${Player.admin2Enabled} $loggedInPlayerName $selectedName');
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      onPopInvoked: (bool didPop) async {
+        if (kDebugMode) {
+          print('build STATS PopScope!!! $didPop');
+        }
+        // if (didPop) return;
         //check if the score changed
-        return true;
+        return;
       },
       child: Scaffold(
         backgroundColor: Colors.brown[50],
@@ -156,57 +157,8 @@ class StatsState extends State<Stats> {
             shrinkWrap: true,
             padding: const EdgeInsets.all(10),
             children: [
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black, backgroundColor: Colors.blue),
-                onPressed: () async {
-                  await launchUrl(Uri(path: 'assets/assets/DoublesLadderRules.pdf'));
-                },
-                child: const Text('Open PDF of rules'),
-              ),
-              const SizedBox(height: 10,),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black, backgroundColor: Colors.blue),
-                onPressed: () async {
-                  await launchUrl(Uri(path: 'assets/assets/AppInstructions.pdf'));
-                },
-                child: const Text('Open PDF of App Instructions'),
-              ),
-              const SizedBox(height: 10,),
-              loggedInPlayerName != selectedName
-                  ? (selectedName == ''
-                      ? const Text('Please wait for picture to be processed')
-                      : const Text('Here are the stats'))
-                  : OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          backgroundColor: Colors.green),
-                      onPressed: () async {
-                        // print('Select Picture');
-                        XFile? pickedFile;
-                        try {
-                          pickedFile = await ImagePicker()
-                              .pickImage(source: ImageSource.gallery);
-                        } catch (e) {
-                          if (kDebugMode) {
-                            print('Exception while picking image $e');
-                          }
-                        }
-                        if (pickedFile == null) {
-                          // print('No file picked');
-                          return;
-                        } else {
-                          int savePlayerNumber = statsPlayerNumber;
-                          parentSetState(-1);
-                          await uploadPicture(pickedFile);
-                          buildPlayerImageFileList(refresh: true);
-                          parentSetState(savePlayerNumber);
 
-                          // print(pickedFile.path);
-                        }
-                      },
-                      child: const Text('Select new picture')),
+
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   Text(
@@ -222,35 +174,57 @@ class StatsState extends State<Stats> {
                       : const Text(
                           'Please upload an image so others can recognize you'),
                 ]),
-                Text(
-                  'Admin Level: ${(statsPlayerNumber >= 0)
-                          ? Player.db[statsPlayerNumber].admin.toString()
-                          : 'XX'}',
-                  style: nameStyle,
-                  textAlign: TextAlign.end,
-                ),
-                ((selectedEmail!=null)&&((Player.admin1Enabled )|| (loggedInPlayerName == selectedName)))?
-                OutlinedButton(
+                loggedInPlayerName != selectedName
+                    ? (selectedName == ''
+                    ? const Text('Please wait for picture to be processed')
+                    : const Text(''))
+                    : OutlinedButton(
                     style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.black,
-                        backgroundColor: Colors.blue),
-                    onPressed: () {
-                      if (kDebugMode) {
-                        print('password reset to $selectedEmail');
+                        backgroundColor: Colors.green),
+                    onPressed: () async {
+                      // print('Select Picture');
+                      XFile? pickedFile;
+                      try {
+                        pickedFile = await ImagePicker()
+                            .pickImage(source: ImageSource.gallery);
+                      } catch (e) {
+                        if (kDebugMode) {
+                          print('Exception while picking image $e');
+                        }
                       }
-                      FirebaseAuth.instance.sendPasswordResetEmail(email: selectedEmail!);
+                      if (pickedFile == null) {
+                        // print('No file picked');
+                        return;
+                      } else {
+                        int savePlayerNumber = statsPlayerNumber;
+                        parentSetState(-1);
+                        await uploadPicture(pickedFile);
+                        buildPlayerImageFileList(refresh: true);
+                        parentSetState(savePlayerNumber);
+
+                        // print(pickedFile.path);
+                      }
                     },
-                    child: const Text('Send Password Reset Email'))
-                :const Text('Please log out and log in again\nWe have not recorded your email address yet'),
-                (loggedInPlayerName != selectedName)?const SizedBox(height: 0)
-                    :const Text('Are you going to miss Ladder?',
-                    style: TextStyle(fontSize:20, color:Colors.red)),
+                    child: const Text('Select new picture')),
+                // Text(
+                //   'Admin Level: ${(statsPlayerNumber >= 0)
+                //           ? Player.db[statsPlayerNumber].admin.toString()
+                //           : 'XX'}',
+                //   style: nameStyle,
+                //   textAlign: TextAlign.end,
+                // ),
+
+                // (loggedInPlayerName != selectedName)?const SizedBox(height: 0)
+                //     :const Text('Are you going to miss Ladder?',
+                //     style: TextStyle(fontSize:20, color:Colors.red)),
                 Row(children: [
                   const Expanded(
                       child: Text(
                     'Weeks away:',
-                    style: nameStyle,
+                    style: coloredNameStyle,
                   )),
+
                   Expanded(
                       child: Player.admin2Enabled | (((Player.admin1Enabled) |
                                   (Player.db[statsPlayerNumber].playerName ==
@@ -263,7 +237,7 @@ class StatsState extends State<Stats> {
                               initialValue: Player
                                   .db[statsPlayerNumber].weeksAway
                                   .toString(),
-                              style: nameStyle,
+                              style: coloredNameStyle,
                               textAlign: TextAlign.center,
                               // decoration: decoration,
                               keyboardType: TextInputType.number,
@@ -293,11 +267,12 @@ class StatsState extends State<Stats> {
                               : Text(
                                   Player.db[statsPlayerNumber].weeksAway
                                       .toString(),
-                                  style: nameStyle)))
+                                  style: coloredNameStyle)))
                 ]),
-                (loggedInPlayerName != selectedName)?const SizedBox(height: 0)
-                    :const Text('Enter the number of weeks you will be away!',
-                    style: TextStyle(fontSize:20, color:Colors.red)),
+                const SizedBox(height: 20,),
+                // (loggedInPlayerName != selectedName)?const SizedBox(height: 0)
+                //     :const Text('Enter the number of weeks you will be away!',
+                //     style: TextStyle(fontSize:20, color:Colors.red)),
                 Text(
                   Player.db[statsPlayerNumber].getLastMovement(),
                   style: nameStyle,
@@ -320,6 +295,25 @@ class StatsState extends State<Stats> {
               const SizedBox(height: 20),
               Text('Entered by: ${Player.db[statsPlayerNumber].scoreLastUpdatedBy}',
                   style: const TextStyle(fontSize:20)),
+              const SizedBox(height: 20,),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black, backgroundColor: Colors.blue),
+                onPressed: () async {
+                  await launchUrl(Uri(path: 'assets/assets/DoublesLadderRules.pdf'));
+                },
+                child: const Text('Open PDF of rules'),
+              ),
+              const SizedBox(height: 10,),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black, backgroundColor: Colors.blue),
+                onPressed: () async {
+                  await launchUrl(Uri(path: 'assets/assets/AppInstructions.pdf'));
+                },
+                child: const Text('Open PDF of App Instructions'),
+              ),
+              const SizedBox(height: 10,),
             ]),
       ),
     );
